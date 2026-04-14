@@ -133,6 +133,17 @@ export default function CollectionPhotosPage({
     }
   }
 
+  // Handle ESC key to close dialog
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && deleteDialogOpen) {
+        setDeleteDialogOpen(false)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [deleteDialogOpen])
+
   useEffect(() => {
     params.then(({ id }) => {
       fetch(`/api/admin/collections/${id}`)
@@ -300,6 +311,7 @@ export default function CollectionPhotosPage({
                   type="checkbox"
                   checked={collection.photos.length > 0 && selectedPhotos.size === collection.photos.length}
                   onChange={toggleSelectAll}
+                  aria-label="Select all photos"
                   className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-purple-500"
                 />
                 <span className="text-sm">Select all ({collection.photos.length} photos)</span>
@@ -315,6 +327,7 @@ export default function CollectionPhotosPage({
                     type="checkbox"
                     checked={selectedPhotos.has(photo.id)}
                     onChange={() => togglePhotoSelection(photo.id)}
+                    aria-label={`Select photo ${photo.rarity}`}
                     className="w-5 h-5 rounded border-gray-600 bg-gray-700/80 text-purple-600 focus:ring-purple-500 cursor-pointer"
                   />
                 </div>
