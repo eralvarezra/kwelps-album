@@ -74,6 +74,47 @@ export async function createPhotoWithUpload(
   }
 }
 
+type BulkPhotoItem = {
+  file: File
+  rarity: 'COMMON' | 'RARE' | 'EPIC' | 'LEGENDARY'
+  collectionId: string
+}
+
+export async function bulkUploadPhotos(
+  photos: BulkPhotoItem[]
+): Promise<{ success: boolean; count?: number; error?: string }> {
+  await requireAdmin()
+
+  if (photos.length === 0) {
+    return { success: false, error: 'No photos to upload' }
+  }
+
+  const collectionId = photos[0].collectionId
+  let uploadedCount = 0
+
+  try {
+    for (const photo of photos) {
+      const { url, thumbnailUrl } = await uploadPhoto(photo.file, photo.collectionId)
+
+      await prisma.photo.create({
+        data: {
+          collectionId: photo.collectionId,
+          url,
+          thumbnailUrl,
+          rarity: photo.rarity,
+        },
+      })
+
+      uploadedCount++
+    }
+
+    revalidatePath(`/admin/collections/${collectionId}/photos`)
+    return { success: true, count: uploadedCount }
+  } catch (error) {
+    return { success: false, error: `${uploadedCount} uploaded before error: ${(error as Error).message}` }
+  }
+}
+
 export async function updatePhoto(
   id: string,
   data: Partial<Pick<PhotoInput, 'rarity' | 'thumbnailUrl'>>
@@ -113,4 +154,81 @@ export async function deletePhotoAction(id: string) {
   })
 
   revalidatePath(`/admin/collections/${photo.collectionId}/photos`)
+  revalidatePath('/admin/photos')
+}
+
+export async function updatePhotosRarity(
+  photoIds: string[],
+  rarity: 'COMMON' | 'RARE' | 'EPIC' | 'LEGENDARY'
+) {
+  await requireAdmin()
+
+  await prisma.photo.updateMany({
+    where: { id: { in: photoIds } },
+    data: { rarity },
+  })
+
+  revalidatePath('/admin/photos')
+  revalidatePath('/admin/collections')
+}
+
+export async function getPhotoDeletionImpact(photoIds: string[]) {
+  await requireAdmin()
+
+  if (photoIds.length === 0) {
+    return { photoCount: 0, affectedUsers: 0 }
+  }
+
+  const affectedUsersCount = await prisma.userPhoto.count({
+    where: { photoId: { in: photoIds } }
+  })
+
+  return {
+    photoCount: photoIds.length,
+    affectedUsers: affectedUsersCount
+  }
+}
+
+export async function deletePhotos(photoIds: string[]): Promise<{ success: boolean; deletedCount?: number; affectedUsers?: number; error?: string }> {
+  await requireAdmin()
+
+  if (photoIds.length === 0) {
+    return { success: false, error: 'No photos selected' }
+  }
+
+  try {
+    // Get photos to delete from storage
+    const photos = await prisma.photo.findMany({
+      where: { id: { in: photoIds } },
+      select: { id: true, url: true, collectionId: true }
+    })
+
+    const affectedUsersCount = await prisma.userPhoto.count({
+      where: { photoId: { in: photoIds } }
+    })
+
+    // Delete from storage
+    for (const photo of photos) {
+      try {
+        await deletePhoto(photo.url)
+      } catch {
+        // Continue even if storage delete fails
+      }
+    }
+
+    // Delete from database (cascade handles UserPhotos)
+    await prisma.photo.deleteMany({
+      where: { id: { in: photoIds } }
+    })
+
+    const collectionId = photos[0]?.collectionId
+    if (collectionId) {
+      revalidatePath(`/admin/collections/${collectionId}/photos`)
+    }
+    revalidatePath('/admin/collections')
+
+    return { success: true, deletedCount: photoIds.length, affectedUsers: affectedUsersCount }
+  } catch (error) {
+    return { success: false, error: (error as Error).message }
+  }
 }
