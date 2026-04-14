@@ -58,20 +58,31 @@ export async function updateCollection(id: string, data: Partial<CollectionInput
 export async function deleteCollection(id: string) {
   await requireAdmin()
 
-  // Check if collection has photos
-  const photoCount = await prisma.photo.count({
-    where: { collectionId: id },
+  const collection = await prisma.collection.findUnique({
+    where: { id },
+    select: {
+      _count: {
+        select: { photos: true }
+      }
+    }
   })
 
-  if (photoCount > 0) {
-    throw new Error('Cannot delete collection with photos. Delete photos first.')
+  if (!collection) {
+    throw new Error('Collection not found')
   }
 
+  const affectedUsersCount = await prisma.userPhoto.count({
+    where: {
+      photo: { collectionId: id }
+    }
+  })
+
   await prisma.collection.delete({
-    where: { id },
+    where: { id }
   })
 
   revalidatePath('/admin/collections')
+  return { photoCount: collection._count.photos, affectedUsers: affectedUsersCount }
 }
 
 export async function toggleCollectionActive(id: string, active: boolean) {
@@ -84,4 +95,34 @@ export async function toggleCollectionActive(id: string, active: boolean) {
 
   revalidatePath('/admin/collections')
   return collection
+}
+
+export async function getCollectionDeletionImpact(id: string) {
+  await requireAdmin()
+
+  const collection = await prisma.collection.findUnique({
+    where: { id },
+    select: {
+      name: true,
+      _count: {
+        select: { photos: true }
+      }
+    }
+  })
+
+  if (!collection) {
+    throw new Error('Collection not found')
+  }
+
+  const affectedUsersCount = await prisma.userPhoto.count({
+    where: {
+      photo: { collectionId: id }
+    }
+  })
+
+  return {
+    name: collection.name,
+    photoCount: collection._count.photos,
+    affectedUsers: affectedUsersCount
+  }
 }
