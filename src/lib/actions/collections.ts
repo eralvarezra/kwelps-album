@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { collectionSchema, type CollectionInput } from '@/lib/validations/collection'
 import { requireAdmin } from '@/lib/auth/admin'
+import { deletePhoto } from '@/lib/storage/supabase-storage'
 
 export async function getCollections() {
   return prisma.collection.findMany({
@@ -76,6 +77,21 @@ export async function deleteCollection(id: string) {
       photo: { collectionId: id }
     }
   })
+
+  // Get all photos to delete from storage
+  const photos = await prisma.photo.findMany({
+    where: { collectionId: id },
+    select: { url: true }
+  })
+
+  // Delete files from storage (best effort)
+  for (const photo of photos) {
+    try {
+      await deletePhoto(photo.url)
+    } catch {
+      // Continue even if storage delete fails
+    }
+  }
 
   await prisma.collection.delete({
     where: { id }
