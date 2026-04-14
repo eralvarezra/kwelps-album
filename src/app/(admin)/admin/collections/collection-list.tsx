@@ -152,8 +152,8 @@ export function CollectionList({ collections }: { collections: Collection[] }) {
 
       {/* Delete Confirmation Dialog */}
       {deleteState.isOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="glass rounded-xl p-6 max-w-md w-full mx-4">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="glass rounded-xl p-6 max-w-md w-full">
             <h3 className="text-lg font-bold text-white mb-4">Delete Collection</h3>
             <div className="space-y-3 mb-6">
               <p className="text-gray-300">
