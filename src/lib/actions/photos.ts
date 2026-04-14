@@ -226,8 +226,9 @@ export async function deletePhotos(photoIds: string[]): Promise<{ success: boole
       revalidatePath(`/admin/collections/${collectionId}/photos`)
     }
     revalidatePath('/admin/collections')
+    revalidatePath('/admin/photos')
 
-    return { success: true, deletedCount: photoIds.length, affectedUsers: affectedUsersCount }
+    return { success: true, deletedCount: photos.length, affectedUsers: affectedUsersCount }
   } catch (error) {
     return { success: false, error: (error as Error).message }
   }
