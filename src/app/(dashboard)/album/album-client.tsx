@@ -29,6 +29,7 @@ type Photo = {
   rarity: 'COMMON' | 'RARE' | 'EPIC' | 'LEGENDARY'
   quantity: number
   obtainedAt: Date
+  collectionName?: string
 }
 
 type Rarity = 'COMMON' | 'RARE' | 'EPIC' | 'LEGENDARY' | 'ALL'
@@ -406,8 +407,14 @@ export function AlbumClient({
             {/* Fusion Info */}
             <div className="glass rounded-2xl p-5">
               <h3 className="text-lg font-bold text-white mb-2">Fusionar Cartas</h3>
-              <p className="text-gray-400 text-sm mb-5">
+              <p className="text-gray-400 text-sm mb-2">
                 Combina 4 cartas de la misma rareza para obtener una de mayor rareza
+              </p>
+              <p className="text-amber-400/80 text-xs mb-5 flex items-center gap-1">
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Solo puedes fusionar cartas del mismo catálogo. El resultado será de este mismo catálogo.
               </p>
 
               {/* Fusion Rules */}
@@ -573,7 +580,12 @@ export function AlbumClient({
               </svg>
             </div>
             <h2 className="text-2xl font-bold text-white mb-2">¡Fusión Completada!</h2>
-            <p className="text-gray-400 mb-6">Obtuviste una nueva carta</p>
+            <p className="text-gray-400 mb-2">Obtuviste una nueva carta</p>
+            {fusionResult.collectionName && (
+              <p className="text-xs text-amber-400/80 mb-4">
+                del catálogo: {fusionResult.collectionName}
+              </p>
+            )}
 
             <div className={`relative mx-auto w-40 h-40 mb-6 rounded-2xl overflow-hidden border-2 ${
               fusionResult.rarity === 'LEGENDARY' ? 'border-yellow-500/50 card-glow-legendary' :

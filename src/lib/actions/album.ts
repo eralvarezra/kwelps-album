@@ -282,8 +282,9 @@ type Rarity = 'COMMON' | 'RARE' | 'EPIC' | 'LEGENDARY'
 /**
  * Fuse 4 cards (can be same or different photos) into 1 higher rarity card
  * photoIds can contain duplicates if user has enough quantity
+ * All cards must be from the same collection, and the result will be from that same collection
  */
-export async function fuseCards(photoIds: string[]): Promise<{ success: boolean; newPhoto?: { id: string; url: string; thumbnailUrl: string | null; rarity: Rarity }; error?: string }> {
+export async function fuseCards(photoIds: string[]): Promise<{ success: boolean; newPhoto?: { id: string; url: string; thumbnailUrl: string | null; rarity: Rarity; collectionName: string }; error?: string }> {
   const supabase = await createClient()
   const {
     data: { user },
@@ -304,13 +305,13 @@ export async function fuseCards(photoIds: string[]): Promise<{ success: boolean;
       photoIdCounts.set(id, (photoIdCounts.get(id) || 0) + 1)
     }
 
-    // Get user's photos
+    // Get user's photos with collection info
     const userPhotos = await tx.userPhoto.findMany({
       where: {
         userId: user.id,
         photoId: { in: [...photoIdCounts.keys()] },
       },
-      include: { photo: true },
+      include: { photo: { include: { collection: true } } },
     })
 
     // Verify user has enough quantity of each photo
@@ -328,6 +329,13 @@ export async function fuseCards(photoIds: string[]): Promise<{ success: boolean;
       throw new Error('All cards must have the same rarity')
     }
 
+    // Verify all photos are from the same collection
+    const collectionIds = userPhotos.map((up) => up.photo.collectionId)
+    const uniqueCollectionIds = [...new Set(collectionIds)]
+    if (uniqueCollectionIds.length !== 1) {
+      throw new Error('All cards must be from the same collection')
+    }
+
     const currentRarity = uniqueRarities[0] as Rarity
     const nextRarity = FUSION_RANKS[currentRarity]
 
@@ -335,31 +343,32 @@ export async function fuseCards(photoIds: string[]): Promise<{ success: boolean;
       throw new Error('Cannot fuse legendary cards')
     }
 
-    // Get active collection
-    const activeCollection = await tx.collection.findFirst({
-      where: { active: true },
+    // Get the collection from the fused cards (not the active collection)
+    const fusionCollectionId = uniqueCollectionIds[0]
+    const fusionCollection = await tx.collection.findUnique({
+      where: { id: fusionCollectionId },
       include: { photos: true },
     })
 
-    if (!activeCollection) {
-      throw new Error('No active collection')
+    if (!fusionCollection) {
+      throw new Error('Collection not found')
     }
 
-    // Get all photos of the next rarity in active collection
-    const nextRarityPhotos = activeCollection.photos.filter(
+    // Get all photos of the next rarity in the SAME collection as the fused cards
+    const nextRarityPhotos = fusionCollection.photos.filter(
       (p) => p.rarity === nextRarity
     )
 
     if (nextRarityPhotos.length === 0) {
-      throw new Error(`No ${nextRarity} cards available in collection`)
+      throw new Error(`No ${nextRarity} cards available in this collection`)
     }
 
-    // Get user's existing photos of next rarity
+    // Get user's existing photos of next rarity in this collection
     const userNextRarityPhotos = await tx.userPhoto.findMany({
       where: {
         userId: user.id,
         photo: {
-          collectionId: activeCollection.id,
+          collectionId: fusionCollectionId,
           rarity: nextRarity,
         },
       },
@@ -429,6 +438,7 @@ export async function fuseCards(photoIds: string[]): Promise<{ success: boolean;
         url: selectedPhoto.url,
         thumbnailUrl: selectedPhoto.thumbnailUrl,
         rarity: nextRarity,
+        collectionName: fusionCollection.name,
       },
     }
   })
