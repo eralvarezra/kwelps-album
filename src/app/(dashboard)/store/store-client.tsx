@@ -196,14 +196,14 @@ export function StoreClient({ initialData }: { initialData: StoreData }) {
         {/* Pack */}
         <div className="glass rounded-xl overflow-hidden border border-white/10">
           <div className="bg-gradient-to-r from-purple-600 to-purple-700 p-6 text-white">
-            <h2 className="text-2xl font-bold">Pack de 3 Fotos</h2>
+            <h2 className="text-2xl font-bold">Pack de 4 Fotos</h2>
             <p className="text-3xl font-bold mt-2">${PACK_PRICE.toFixed(2)}</p>
           </div>
           <div className="p-6">
             <ul className="space-y-2 text-sm text-gray-300 mb-4">
-              <li>✓ 3 fotos aleatorias</li>
+              <li>✓ 4 fotos aleatorias</li>
               <li>✓ Garantizado 1 Raro o superior</li>
-              <li>✓ Pity counter: +3</li>
+              <li>✓ Pity counter: +4</li>
             </ul>
             <button
               onClick={handlePurchasePack}

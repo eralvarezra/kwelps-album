@@ -36,7 +36,7 @@ const RARITY_PROBS = {
 
 // Precios
 const PACK_PRICE = 5.00
-const PHOTOS_PER_PACK = 3
+const PHOTOS_PER_PACK = 4
 const PITY_THRESHOLD = 20
 
 // Calcular costo estimado para completar una rareza

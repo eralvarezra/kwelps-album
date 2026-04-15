@@ -181,10 +181,10 @@ export async function purchasePack(collectionId?: string): Promise<PackResult> {
         data: { legendaryCounter: 0 },
       })
     } else {
-      // Increment pity counter by 3 (one per photo)
+      // Increment pity counter by 4 (one per photo)
       await tx.pityCounter.update({
         where: { userId: user.id },
-        data: { legendaryCounter: { increment: 3 } },
+        data: { legendaryCounter: { increment: 4 } },
       })
     }
 
