@@ -112,7 +112,7 @@ export function UserList({ users }: { users: User[] }) {
 
   if (users.length === 0) {
     return (
-      <div className="glass rounded-xl p-8 text-center">
+      <div className="glass rounded-xl p-6 lg:p-8 text-center">
         <p className="text-gray-400">No hay usuarios aún</p>
       </div>
     )
@@ -120,88 +120,141 @@ export function UserList({ users }: { users: User[] }) {
 
   return (
     <>
-      <div className="glass rounded-xl overflow-hidden">
-        <table className="min-w-full">
-          <thead className="bg-white/5">
-            <tr>
-              <th className="px-5 py-3 text-left text-xs font-medium text-gray-400 uppercase">
-                Email
-              </th>
-              <th className="px-5 py-3 text-left text-xs font-medium text-gray-400 uppercase">
+      {/* Mobile Card View */}
+      <div className="lg:hidden space-y-3">
+        {users.map((user) => (
+          <div key={user.id} className="glass rounded-xl p-4">
+            <div className="flex justify-between items-start mb-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-white font-medium truncate">{user.email}</p>
+                <p className="text-xs text-gray-500">
+                  {new Date(user.createdAt).toLocaleDateString()}
+                </p>
+              </div>
+              <span className="text-xs text-gray-400 ml-2">
+                {user._count.transactions} trans.
+              </span>
+            </div>
+            <div className="flex gap-4 mb-3">
+              <div className="flex-1 bg-white/5 rounded-lg p-2 text-center">
+                <p className="text-xs text-gray-400">Balance</p>
+                <p className="text-lg font-bold text-emerald-400">
+                  ${user.wallet?.balance ? user.wallet.balance.toFixed(2) : '0.00'}
+                </p>
+              </div>
+              <div className="flex-1 bg-white/5 rounded-lg p-2 text-center">
+                <p className="text-xs text-gray-400">Admin</p>
+                <p className="text-lg font-bold text-yellow-400">
+                  ${user.wallet?.adminBalance ? user.wallet.adminBalance.toFixed(2) : '0.00'}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleViewCollection(user)}
+                className="flex-1 py-2 text-sm text-blue-400 bg-blue-500/10 border border-blue-500/30 rounded-lg hover:bg-blue-500/20 transition-colors"
+              >
+                Colección
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedUser(user)
+                  setOperation('add')
+                }}
+                className="flex-1 py-2 text-sm text-purple-400 bg-purple-500/10 border border-purple-500/30 rounded-lg hover:bg-purple-500/20 transition-colors"
+              >
                 Balance
-              </th>
-              <th className="px-5 py-3 text-left text-xs font-medium text-gray-400 uppercase">
-                Balance Admin
-              </th>
-              <th className="px-5 py-3 text-left text-xs font-medium text-gray-400 uppercase">
-                Transacciones
-              </th>
-              <th className="px-5 py-3 text-left text-xs font-medium text-gray-400 uppercase">
-                Registro
-              </th>
-              <th className="px-5 py-3 text-right text-xs font-medium text-gray-400 uppercase">
-                Acciones
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-white/5">
-            {users.map((user) => (
-              <tr key={user.id} className="hover:bg-white/5">
-                <td className="px-5 py-4">
-                  <div className="text-sm font-medium text-white">{user.email}</div>
-                </td>
-                <td className="px-5 py-4">
-                  <span className="text-sm font-bold text-emerald-400">
-                    ${user.wallet?.balance ? user.wallet.balance.toFixed(2) : '0.00'}
-                  </span>
-                </td>
-                <td className="px-5 py-4">
-                  <span className="text-sm font-bold text-yellow-400">
-                    ${user.wallet?.adminBalance ? user.wallet.adminBalance.toFixed(2) : '0.00'}
-                  </span>
-                </td>
-                <td className="px-5 py-4">
-                  <span className="text-sm text-gray-400">{user._count.transactions}</span>
-                </td>
-                <td className="px-5 py-4">
-                  <span className="text-sm text-gray-500">
-                    {new Date(user.createdAt).toLocaleDateString()}
-                  </span>
-                </td>
-                <td className="px-5 py-4 text-right">
-                  <div className="flex gap-2 justify-end">
-                    <button
-                      onClick={() => handleViewCollection(user)}
-                      className="text-blue-400 hover:text-blue-300 text-sm font-medium"
-                    >
-                      Colección
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSelectedUser(user)
-                        setOperation('add')
-                      }}
-                      className="text-purple-400 hover:text-purple-300 text-sm font-medium"
-                    >
-                      Balance
-                    </button>
-                  </div>
-                </td>
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop Table View */}
+      <div className="hidden lg:block glass rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full">
+            <thead className="bg-white/5">
+              <tr>
+                <th className="px-5 py-3 text-left text-xs font-medium text-gray-400 uppercase">
+                  Email
+                </th>
+                <th className="px-5 py-3 text-left text-xs font-medium text-gray-400 uppercase">
+                  Balance
+                </th>
+                <th className="px-5 py-3 text-left text-xs font-medium text-gray-400 uppercase">
+                  Balance Admin
+                </th>
+                <th className="px-5 py-3 text-left text-xs font-medium text-gray-400 uppercase">
+                  Transacciones
+                </th>
+                <th className="px-5 py-3 text-left text-xs font-medium text-gray-400 uppercase">
+                  Registro
+                </th>
+                <th className="px-5 py-3 text-right text-xs font-medium text-gray-400 uppercase">
+                  Acciones
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {users.map((user) => (
+                <tr key={user.id} className="hover:bg-white/5">
+                  <td className="px-5 py-4">
+                    <div className="text-sm font-medium text-white">{user.email}</div>
+                  </td>
+                  <td className="px-5 py-4">
+                    <span className="text-sm font-bold text-emerald-400">
+                      ${user.wallet?.balance ? user.wallet.balance.toFixed(2) : '0.00'}
+                    </span>
+                  </td>
+                  <td className="px-5 py-4">
+                    <span className="text-sm font-bold text-yellow-400">
+                      ${user.wallet?.adminBalance ? user.wallet.adminBalance.toFixed(2) : '0.00'}
+                    </span>
+                  </td>
+                  <td className="px-5 py-4">
+                    <span className="text-sm text-gray-400">{user._count.transactions}</span>
+                  </td>
+                  <td className="px-5 py-4">
+                    <span className="text-sm text-gray-500">
+                      {new Date(user.createdAt).toLocaleDateString()}
+                    </span>
+                  </td>
+                  <td className="px-5 py-4 text-right">
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        onClick={() => handleViewCollection(user)}
+                        className="text-blue-400 hover:text-blue-300 text-sm font-medium"
+                      >
+                        Colección
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedUser(user)
+                          setOperation('add')
+                        }}
+                        className="text-purple-400 hover:text-purple-300 text-sm font-medium"
+                      >
+                        Balance
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Balance Modal */}
       {selectedUser && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="glass rounded-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
-            <h2 className="text-xl font-bold text-white mb-4">Administrar Balance</h2>
-            <p className="text-gray-400 mb-2">
+          <div className="glass rounded-xl p-5 lg:p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg lg:text-xl font-bold text-white mb-4">Administrar Balance</h2>
+            <p className="text-gray-400 mb-2 text-sm lg:text-base">
               Usuario: <span className="text-white font-medium">{selectedUser.email}</span>
             </p>
-            <div className="flex gap-4 mb-6">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 mb-6">
               <p className="text-sm text-gray-500">
                 Balance Total: <span className="text-emerald-400 font-medium">${selectedUser.wallet?.balance ? selectedUser.wallet.balance.toFixed(2) : '0.00'}</span>
               </p>
@@ -211,7 +264,7 @@ export function UserList({ users }: { users: User[] }) {
             </div>
 
             {error && (
-              <div className="bg-red-500/20 border border-red-500/30 text-red-400 p-3 rounded-xl mb-4">{error}</div>
+              <div className="bg-red-500/20 border border-red-500/30 text-red-400 p-3 rounded-xl mb-4 text-sm">{error}</div>
             )}
 
             {/* Operation Toggle */}
@@ -293,10 +346,10 @@ export function UserList({ users }: { users: User[] }) {
       {/* Collection Modal */}
       {viewingCollection && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="glass rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-auto" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-6">
+          <div className="glass rounded-xl p-5 lg:p-6 w-full max-w-4xl max-h-[90vh] overflow-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4 lg:mb-6">
               <div>
-                <h2 className="text-xl font-bold text-white">Colección del Usuario</h2>
+                <h2 className="text-lg lg:text-xl font-bold text-white">Colección del Usuario</h2>
                 <p className="text-gray-400 text-sm">{viewingCollection.email}</p>
               </div>
               <button
@@ -304,7 +357,7 @@ export function UserList({ users }: { users: User[] }) {
                   setViewingCollection(null)
                   setCollectionPhotos([])
                 }}
-                className="text-gray-400 hover:text-white"
+                className="text-gray-400 hover:text-white p-2"
               >
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -320,14 +373,14 @@ export function UserList({ users }: { users: User[] }) {
               <>
                 {/* Collection Filter */}
                 {collections.length > 1 && (
-                  <div className="mb-6">
+                  <div className="mb-4 lg:mb-6">
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       Filtrar por colección:
                     </label>
                     <select
                       value={selectedCollectionId}
                       onChange={(e) => setSelectedCollectionId(e.target.value)}
-                      className="bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                      className="w-full sm:w-auto bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50"
                     >
                       <option value="" className="bg-[#1e293b] text-white">Todas las colecciones</option>
                       {collections.map((collection) => (
@@ -340,20 +393,20 @@ export function UserList({ users }: { users: User[] }) {
                 )}
 
                 {/* Stats */}
-                <div className="grid grid-cols-4 gap-3 mb-6">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 lg:gap-3 mb-4 lg:mb-6">
                   {(['COMMON', 'RARE', 'EPIC', 'LEGENDARY'] as const).map((rarity) => {
                     const config = rarityConfig[rarity]
                     return (
-                      <div key={rarity} className={`rounded-xl p-3 border ${config.bg} ${config.border}`}>
-                        <p className={`text-sm font-medium ${config.text}`}>{config.label}</p>
-                        <p className="text-2xl font-bold text-white">{collectionStats[rarity]}</p>
+                      <div key={rarity} className={`rounded-xl p-2 lg:p-3 border ${config.bg} ${config.border}`}>
+                        <p className={`text-xs lg:text-sm font-medium ${config.text}`}>{config.label}</p>
+                        <p className="text-xl lg:text-2xl font-bold text-white">{collectionStats[rarity]}</p>
                       </div>
                     )
                   })}
                 </div>
 
                 {filteredPhotos.length === 0 ? (
-                  <div className="text-center py-12">
+                  <div className="text-center py-8 lg:py-12">
                     <p className="text-gray-400">
                       {collectionPhotos.length === 0
                         ? 'Este usuario no tiene fotos en su colección'
@@ -362,7 +415,7 @@ export function UserList({ users }: { users: User[] }) {
                   </div>
                 ) : (
                   /* Photos Grid */
-                  <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
                     {filteredPhotos.map((photo) => {
                       const config = rarityConfig[photo.rarity]
                       return (
@@ -392,7 +445,7 @@ export function UserList({ users }: { users: User[] }) {
 
                 {/* Collection Names */}
                 {collections.length > 0 && !selectedCollectionId && (
-                  <div className="mt-6 pt-4 border-t border-white/10">
+                  <div className="mt-4 lg:mt-6 pt-4 border-t border-white/10">
                     <p className="text-sm text-gray-400 mb-2">Colecciones:</p>
                     <div className="flex flex-wrap gap-2">
                       {collections.map((collection) => {

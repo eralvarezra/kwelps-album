@@ -1,0 +1,481 @@
+'use server'
+
+import { prisma } from '@/lib/prisma'
+import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
+
+export type AlbumPhoto = {
+  id: string
+  url: string
+  thumbnailUrl: string | null
+  rarity: 'COMMON' | 'RARE' | 'EPIC' | 'LEGENDARY'
+  quantity: number
+  obtainedAt: Date
+}
+
+export type AlbumCollection = {
+  id: string
+  name: string
+  description: string | null
+  prize: string
+  active: boolean
+  totalPhotos: number
+  collectedPhotos: number
+  photos: AlbumPhoto[]
+}
+
+export type AlbumStats = {
+  totalPhotos: number
+  uniquePhotos: number
+  duplicates: number
+  byRarity: {
+    COMMON: { total: number; collected: number }
+    RARE: { total: number; collected: number }
+    EPIC: { total: number; collected: number }
+    LEGENDARY: { total: number; collected: number }
+  }
+}
+
+/**
+ * Get user's album with all collections and collected photos
+ */
+export async function getAlbum() {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return []
+  }
+
+  // Get all collections with their photos
+  const collections = await prisma.collection.findMany({
+    include: {
+      photos: {
+        orderBy: { rarity: 'asc' },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  })
+
+  // Get user's collected photos
+  const userPhotos = await prisma.userPhoto.findMany({
+    where: { userId: user.id },
+    include: {
+      photo: true,
+    },
+  })
+
+  // Create a map for quick lookup
+  const userPhotoMap = new Map(
+    userPhotos.map((up) => [up.photoId, { quantity: up.quantity, obtainedAt: up.obtainedAt }])
+  )
+
+  // Build album data
+  const album: AlbumCollection[] = collections.map((collection) => {
+    const photos: AlbumPhoto[] = collection.photos.map((photo) => {
+      const collected = userPhotoMap.get(photo.id)
+      return {
+        id: photo.id,
+        url: photo.url,
+        thumbnailUrl: photo.thumbnailUrl,
+        rarity: photo.rarity,
+        quantity: collected?.quantity ?? 0,
+        obtainedAt: collected?.obtainedAt ?? new Date(),
+      }
+    })
+
+    const collectedPhotos = photos.filter((p) => p.quantity > 0).length
+
+    return {
+      id: collection.id,
+      name: collection.name,
+      description: collection.description,
+      prize: collection.prize,
+      active: collection.active,
+      totalPhotos: collection.photos.length,
+      collectedPhotos,
+      photos,
+    }
+  })
+
+  return album
+}
+
+/**
+ * Get user's album statistics
+ */
+export async function getAlbumStats() {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return null
+  }
+
+  // Get all photos in active collection
+  const activeCollection = await prisma.collection.findFirst({
+    where: { active: true },
+    include: { photos: true },
+  })
+
+  if (!activeCollection) {
+    return null
+  }
+
+  // Get user's collected photos
+  const userPhotos = await prisma.userPhoto.findMany({
+    where: { userId: user.id },
+    include: { photo: true },
+  })
+
+  // Calculate stats
+  const byRarity = {
+    COMMON: { total: 0, collected: 0 },
+    RARE: { total: 0, collected: 0 },
+    EPIC: { total: 0, collected: 0 },
+    LEGENDARY: { total: 0, collected: 0 },
+  }
+
+  // Count total by rarity
+  for (const photo of activeCollection.photos) {
+    byRarity[photo.rarity].total++
+  }
+
+  // Count collected by rarity
+  let uniquePhotos = 0
+  let duplicates = 0
+
+  for (const up of userPhotos) {
+    if (up.photo.collectionId === activeCollection.id) {
+      if (up.quantity > 0) {
+        uniquePhotos++
+        byRarity[up.photo.rarity].collected++
+      }
+      if (up.quantity > 1) {
+        duplicates += up.quantity - 1
+      }
+    }
+  }
+
+  return {
+    totalPhotos: activeCollection.photos.length,
+    uniquePhotos,
+    duplicates,
+    byRarity,
+    collectionName: activeCollection.name,
+  }
+}
+
+/**
+ * Get a specific collection's album view
+ */
+export async function getCollectionAlbum(collectionId: string) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return null
+  }
+
+  const collection = await prisma.collection.findUnique({
+    where: { id: collectionId },
+    include: {
+      photos: {
+        orderBy: [{ rarity: 'asc' }, { createdAt: 'asc' }],
+      },
+    },
+  })
+
+  if (!collection) {
+    return null
+  }
+
+  // Get user's collected photos for this collection
+  const userPhotos = await prisma.userPhoto.findMany({
+    where: {
+      userId: user.id,
+      photo: { collectionId },
+    },
+    include: { photo: true },
+  })
+
+  const userPhotoMap = new Map(
+    userPhotos.map((up) => [up.photoId, { quantity: up.quantity, obtainedAt: up.obtainedAt }])
+  )
+
+  const photos: AlbumPhoto[] = collection.photos.map((photo) => {
+    const collected = userPhotoMap.get(photo.id)
+    return {
+      id: photo.id,
+      url: photo.url,
+      thumbnailUrl: photo.thumbnailUrl,
+      rarity: photo.rarity,
+      quantity: collected?.quantity ?? 0,
+      obtainedAt: collected?.obtainedAt ?? new Date(),
+    }
+  })
+
+  return {
+    id: collection.id,
+    name: collection.name,
+    description: collection.description,
+    prize: collection.prize,
+    active: collection.active,
+    totalPhotos: collection.photos.length,
+    collectedPhotos: photos.filter((p) => p.quantity > 0).length,
+    photos,
+  }
+}
+
+/**
+ * Get recent pulls for the user
+ */
+export async function getRecentPulls(limit = 10) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return []
+  }
+
+  const recentPhotos = await prisma.userPhoto.findMany({
+    where: { userId: user.id },
+    include: {
+      photo: {
+        include: { collection: true },
+      },
+    },
+    orderBy: { obtainedAt: 'desc' },
+    take: limit,
+  })
+
+  return recentPhotos.map((up) => ({
+    id: up.photo.id,
+    url: up.photo.url,
+    thumbnailUrl: up.photo.thumbnailUrl,
+    rarity: up.photo.rarity,
+    collectionName: up.photo.collection.name,
+    obtainedAt: up.obtainedAt,
+  }))
+}
+
+/**
+ * Fusion ranks mapping
+ */
+const FUSION_RANKS: Record<string, 'RARE' | 'EPIC' | 'LEGENDARY' | null> = {
+  COMMON: 'RARE',
+  RARE: 'EPIC',
+  EPIC: 'LEGENDARY',
+  LEGENDARY: null, // Cannot fuse legendary
+}
+
+type Rarity = 'COMMON' | 'RARE' | 'EPIC' | 'LEGENDARY'
+
+/**
+ * Fuse 4 cards (can be same or different photos) into 1 higher rarity card
+ * photoIds can contain duplicates if user has enough quantity
+ */
+export async function fuseCards(photoIds: string[]): Promise<{ success: boolean; newPhoto?: { id: string; url: string; thumbnailUrl: string | null; rarity: Rarity }; error?: string }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { success: false, error: 'Not authenticated' }
+  }
+
+  if (photoIds.length !== 4) {
+    return { success: false, error: 'You need exactly 4 cards to fuse' }
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    // Count how many times each photoId appears
+    const photoIdCounts = new Map<string, number>()
+    for (const id of photoIds) {
+      photoIdCounts.set(id, (photoIdCounts.get(id) || 0) + 1)
+    }
+
+    // Get user's photos
+    const userPhotos = await tx.userPhoto.findMany({
+      where: {
+        userId: user.id,
+        photoId: { in: [...photoIdCounts.keys()] },
+      },
+      include: { photo: true },
+    })
+
+    // Verify user has enough quantity of each photo
+    for (const [photoId, count] of photoIdCounts) {
+      const userPhoto = userPhotos.find((up) => up.photoId === photoId)
+      if (!userPhoto || userPhoto.quantity < count) {
+        throw new Error(`You don't have enough of this card`)
+      }
+    }
+
+    // Verify all photos have the same rarity
+    const rarities = userPhotos.map((up) => up.photo.rarity)
+    const uniqueRarities = [...new Set(rarities)]
+    if (uniqueRarities.length !== 1) {
+      throw new Error('All cards must have the same rarity')
+    }
+
+    const currentRarity = uniqueRarities[0] as Rarity
+    const nextRarity = FUSION_RANKS[currentRarity]
+
+    if (!nextRarity) {
+      throw new Error('Cannot fuse legendary cards')
+    }
+
+    // Get active collection
+    const activeCollection = await tx.collection.findFirst({
+      where: { active: true },
+      include: { photos: true },
+    })
+
+    if (!activeCollection) {
+      throw new Error('No active collection')
+    }
+
+    // Get all photos of the next rarity in active collection
+    const nextRarityPhotos = activeCollection.photos.filter(
+      (p) => p.rarity === nextRarity
+    )
+
+    if (nextRarityPhotos.length === 0) {
+      throw new Error(`No ${nextRarity} cards available in collection`)
+    }
+
+    // Get user's existing photos of next rarity
+    const userNextRarityPhotos = await tx.userPhoto.findMany({
+      where: {
+        userId: user.id,
+        photo: {
+          collectionId: activeCollection.id,
+          rarity: nextRarity,
+        },
+      },
+      select: { photoId: true },
+    })
+
+    const ownedPhotoIds = new Set(userNextRarityPhotos.map((up) => up.photoId))
+
+    // Prefer photos the user doesn't own yet (guaranteed new card)
+    const unownedPhotos = nextRarityPhotos.filter((p) => !ownedPhotoIds.has(p.id))
+
+    let selectedPhoto
+    if (unownedPhotos.length > 0) {
+      // Give user a new card they don't have
+      selectedPhoto = unownedPhotos[Math.floor(Math.random() * unownedPhotos.length)]
+    } else {
+      // All cards of this rarity are owned, give a random one (duplicate)
+      selectedPhoto = nextRarityPhotos[Math.floor(Math.random() * nextRarityPhotos.length)]
+    }
+
+    // Deduct quantities from original cards
+    for (const [photoId, count] of photoIdCounts) {
+      const userPhoto = userPhotos.find((up) => up.photoId === photoId)!
+      if (userPhoto.quantity > count) {
+        await tx.userPhoto.update({
+          where: { id: userPhoto.id },
+          data: { quantity: { decrement: count } },
+        })
+      } else {
+        // Remove the entry if quantity equals count
+        await tx.userPhoto.delete({
+          where: { id: userPhoto.id },
+        })
+      }
+    }
+
+    // Add the new card
+    const existingNewPhoto = await tx.userPhoto.findUnique({
+      where: {
+        userId_photoId: {
+          userId: user.id,
+          photoId: selectedPhoto.id,
+        },
+      },
+    })
+
+    if (existingNewPhoto) {
+      // Increment quantity if already owned
+      await tx.userPhoto.update({
+        where: { id: existingNewPhoto.id },
+        data: { quantity: { increment: 1 } },
+      })
+    } else {
+      // Create new entry
+      await tx.userPhoto.create({
+        data: {
+          userId: user.id,
+          photoId: selectedPhoto.id,
+          quantity: 1,
+        },
+      })
+    }
+
+    return {
+      newPhoto: {
+        id: selectedPhoto.id,
+        url: selectedPhoto.url,
+        thumbnailUrl: selectedPhoto.thumbnailUrl,
+        rarity: nextRarity,
+      },
+    }
+  })
+
+  revalidatePath('/album')
+  revalidatePath('/dashboard')
+
+  return { success: true, newPhoto: result.newPhoto }
+}
+
+/**
+ * Get cards available for fusion (duplicates)
+ */
+export async function getFusableCards() {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { COMMON: [], RARE: [], EPIC: [], LEGENDARY: [] }
+  }
+
+  const userPhotos = await prisma.userPhoto.findMany({
+    where: {
+      userId: user.id,
+      quantity: { gte: 1 },
+    },
+    include: {
+      photo: true,
+    },
+  })
+
+  const fusableCards: Record<Rarity, typeof userPhotos> = {
+    COMMON: [],
+    RARE: [],
+    EPIC: [],
+    LEGENDARY: [],
+  }
+
+  // Group by rarity and only include if quantity >= 4
+  for (const up of userPhotos) {
+    const rarity = up.photo.rarity as Rarity
+    if (up.quantity >= 4 && FUSION_RANKS[rarity]) {
+      fusableCards[rarity].push(up)
+    }
+  }
+
+  return fusableCards
+}

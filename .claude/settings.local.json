@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run:*)",
+      "Bash(ipconfig)",
+      "Bash(where ngrok:*)",
+      "Bash(npx localtunnel:*)",
+      "Bash(npx @anthropic-ai/claude-code tunnel)",
+      "Bash(npx serveo.net 3000)",
+      "Bash(powershell:*)",
+      "Bash(findstr :3000)",
+      "Bash(grep -v \"^$\")",
+      "Bash(npm test:*)",
+      "Bash(npx prisma:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tsx:*)",
+      "Bash(rm -rf .next)",
+      "Bash(rm -rf node_modules/.cache)",
+      "WebSearch"
+    ]
+  }
+}

@@ -120,8 +120,23 @@ export default async function DashboardPage() {
             Completa las colecciones y recibe premios!
           </p>
           <p className="text-xs text-gray-400 mt-2 leading-relaxed">
-            Si completas una colección, ponte en contacto con <span className="text-emerald-400 font-medium">Kwelps</span> por Telegram enviando una captura de pantalla con la colección completa.
+            Si completas una colección, ponte en contacto con Kwelps por Telegram enviando una captura de pantalla con la colección completa.
           </p>
+          <a
+            href="https://t.me/kwelps"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-4 flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl text-white font-medium hover:from-blue-600 hover:to-cyan-600 transition-colors"
+          >
+            {/* Telegram Icon */}
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+            </svg>
+            <span>Ir a Telegram</span>
+            <svg className="w-4 h-4 ml-auto opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </a>
         </div>
       </div>
 
@@ -181,7 +196,29 @@ export default async function DashboardPage() {
               <li>Colecciona todas las fotos de cada colección</li>
               <li>Fusiona 4 cartas iguales para obtener una de mayor rareza</li>
               <li>Completa colecciones y gana premios especiales</li>
+              <li><span className="text-emerald-400 font-medium">Descarga tus fotos</span> y úsalas como fondos de pantalla para tu celular</li>
             </ul>
+
+            {/* Costa Rica FYI */}
+            <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl">
+              <div className="flex items-start gap-3">
+                <span className="text-xl">🇨🇷</span>
+                <div>
+                  <p className="text-sm text-blue-300 font-medium">Usuarios de Costa Rica</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Pueden recargar su balance con <span className="text-white font-medium">Sinpe Móvil</span> contactándonos por{' '}
+                    <a
+                      href="https://t.me/kwelps"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-400 hover:text-blue-300 underline font-medium"
+                    >
+                      Telegram
+                    </a>
+                  </p>
+                </div>
+              </div>
+            </div>
             <div className="pt-4 flex flex-wrap gap-3">
               <Link
                 href="/store"

@@ -1,5 +1,6 @@
 import sharp from 'sharp'
 import { createClient } from '@/lib/supabase/server'
+import { validateImageFile, MAX_FILE_SIZE } from '@/lib/validations/photo'
 
 const BUCKET_NAME = 'photos'
 const THUMBNAIL_HEIGHT = 200  // Max height in pixels; maintains aspect ratio
@@ -24,15 +25,31 @@ export async function uploadPhoto(
 ): Promise<{ url: string; thumbnailUrl: string }> {
   const supabase = await createClient()
 
-  // Generate unique filename
-  const ext = file.name.split('.').pop() || 'jpg'
-  const uuid = crypto.randomUUID()
-  const originalPath = `photos/${collectionId}/original-${uuid}.${ext}`
-  const thumbnailPath = `photos/${collectionId}/thumbnail-${uuid}.jpg`
-
   // Convert File to Buffer
   const arrayBuffer = await file.arrayBuffer()
   const originalBuffer = Buffer.from(arrayBuffer)
+
+  // SECURITY: Validate file using magic bytes
+  const validation = validateImageFile(originalBuffer, file.type)
+  if (!validation.valid) {
+    throw new Error(validation.error || 'Invalid file')
+  }
+
+  // Additional size check (already done in validation, but explicit here)
+  if (originalBuffer.length > MAX_FILE_SIZE) {
+    throw new Error(`File size exceeds ${MAX_FILE_SIZE / 1024 / 1024}MB limit`)
+  }
+
+  // Generate unique filename with correct extension based on detected type
+  const extensions: Record<string, string> = {
+    'image/jpeg': 'jpg',
+    'image/png': 'png',
+    'image/webp': 'webp',
+  }
+  const ext = extensions[validation.detectedType || file.type] || 'jpg'
+  const uuid = crypto.randomUUID()
+  const originalPath = `photos/${collectionId}/original-${uuid}.${ext}`
+  const thumbnailPath = `photos/${collectionId}/thumbnail-${uuid}.jpg`
 
   // Generate thumbnail
   const thumbnailBuffer = await generateThumbnail(originalBuffer)
