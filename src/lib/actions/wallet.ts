@@ -25,7 +25,7 @@ export async function getWallet() {
   // Ensure wallet exists
   const wallet = await prisma.wallet.upsert({
     where: { userId: user.id },
-    create: { userId: user.id, balance: 0 },
+    create: { userId: user.id, balance: 0, adminBalance: 0 },
     update: {},
   })
 
@@ -96,11 +96,14 @@ export async function adminAddBalance(userId: string, amount: number) {
       },
     })
 
-    // Update wallet balance
+    // Update wallet balance AND adminBalance
     const wallet = await tx.wallet.update({
       where: { userId },
       data: {
         balance: {
+          increment: amount,
+        },
+        adminBalance: {
           increment: amount,
         },
       },
@@ -123,30 +126,34 @@ export async function adminDeductBalance(userId: string, amount: number) {
   }
 
   const result = await prisma.$transaction(async (tx) => {
-    // Check current balance
+    // Check current admin balance (can only deduct admin-given balance)
     const wallet = await tx.wallet.findUnique({
       where: { userId },
     })
 
-    if (!wallet || wallet.balance.toNumber() < amount) {
-      throw new Error('Insufficient balance')
+    if (!wallet || wallet.adminBalance.toNumber() < amount) {
+      throw new Error('Insufficient admin balance. Can only deduct balance that was given by admin.')
     }
 
-    // Create transaction record
+    // Create transaction record with ADMIN source
     const transaction = await tx.transaction.create({
       data: {
         userId,
         type: 'PACK_PURCHASE',
         amount: -amount,
         status: 'COMPLETED',
+        source: 'ADMIN',
       },
     })
 
-    // Update wallet balance
+    // Update both balance and adminBalance
     const updatedWallet = await tx.wallet.update({
       where: { userId },
       data: {
         balance: {
+          decrement: amount,
+        },
+        adminBalance: {
           decrement: amount,
         },
       },
@@ -182,6 +189,7 @@ export async function getAllUsersWithWallets() {
       ? {
           ...user.wallet,
           balance: user.wallet.balance.toNumber(),
+          adminBalance: user.wallet.adminBalance.toNumber(),
         }
       : null,
   }))
