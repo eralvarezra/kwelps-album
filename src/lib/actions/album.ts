@@ -526,11 +526,15 @@ export async function exchangeLegendary(
       include: { photo: { include: { collection: true } } },
     })
 
-    // Verify user has enough quantity of each photo
+    // Verify user has enough quantity of each photo (must leave at least 1 of each)
     for (const [photoId, count] of photoIdCounts) {
       const userPhoto = userPhotos.find((up) => up.photoId === photoId)
       if (!userPhoto || userPhoto.quantity < count) {
         throw new Error(`You don't have enough of this card`)
+      }
+      // Cannot reduce to 0 - must keep at least 1 of each card
+      if (userPhoto.quantity === count) {
+        throw new Error(`You can't exchange all your copies of a card. You must keep at least 1.`)
       }
     }
 

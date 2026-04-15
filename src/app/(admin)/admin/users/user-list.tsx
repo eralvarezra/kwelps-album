@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { adminAddBalance, adminDeductBalance } from '@/lib/actions/wallet'
+import { adminAddBalance, adminDeductBalance, adminGiveCards, adminGetAllPhotos } from '@/lib/actions/wallet'
 
 type User = {
   id: string
@@ -30,6 +30,16 @@ type Collection = {
   id: string
   name: string
   active: boolean
+}
+
+type AdminPhoto = {
+  id: string
+  url: string
+  thumbnailUrl: string | null
+  rarity: 'COMMON' | 'RARE' | 'EPIC' | 'LEGENDARY'
+  collectionId: string
+  collectionName: string
+  collectionActive: boolean
 }
 
 type CollectionProgress = {
@@ -79,6 +89,56 @@ export function UserList({ users }: { users: User[] }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [operation, setOperation] = useState<'add' | 'deduct'>('add')
+
+  // Give cards state
+  const [givingCards, setGivingCards] = useState<User | null>(null)
+  const [allPhotos, setAllPhotos] = useState<AdminPhoto[]>([])
+  const [selectedPhotoId, setSelectedPhotoId] = useState<string>('')
+  const [cardQuantity, setCardQuantity] = useState('1')
+  const [loadingCards, setLoadingCards] = useState(false)
+  const [cardsError, setCardsError] = useState('')
+
+  async function handleOpenGiveCards(user: User) {
+    setGivingCards(user)
+    setAllPhotos([])
+    setSelectedPhotoId('')
+    setCardQuantity('1')
+    setCardsError('')
+    try {
+      const photos = await adminGetAllPhotos()
+      setAllPhotos(photos)
+    } catch (err) {
+      console.error('Error fetching photos:', err)
+      setCardsError('Error al cargar las cartas')
+    }
+  }
+
+  async function handleGiveCards() {
+    if (!givingCards || !selectedPhotoId || !cardQuantity) return
+
+    const qty = parseInt(cardQuantity)
+    if (isNaN(qty) || qty <= 0) {
+      setCardsError('Cantidad inválida')
+      return
+    }
+
+    setLoadingCards(true)
+    setCardsError('')
+
+    try {
+      const result = await adminGiveCards(givingCards.id, selectedPhotoId, qty)
+      if (result.success) {
+        setGivingCards(null)
+        window.location.reload()
+      } else {
+        setCardsError(result.error || 'Error al dar cartas')
+      }
+    } catch (err) {
+      setCardsError('Error al dar cartas')
+    } finally {
+      setLoadingCards(false)
+    }
+  }
 
   async function handleViewCollection(user: User) {
     setViewingCollection(user)
@@ -187,6 +247,12 @@ export function UserList({ users }: { users: User[] }) {
                 Colección
               </button>
               <button
+                onClick={() => handleOpenGiveCards(user)}
+                className="flex-1 py-2 text-sm text-yellow-400 bg-yellow-500/10 border border-yellow-500/30 rounded-lg hover:bg-yellow-500/20 transition-colors"
+              >
+                Cartas
+              </button>
+              <button
                 onClick={() => {
                   setSelectedUser(user)
                   setOperation('add')
@@ -257,6 +323,12 @@ export function UserList({ users }: { users: User[] }) {
                         className="text-blue-400 hover:text-blue-300 text-sm font-medium"
                       >
                         Colección
+                      </button>
+                      <button
+                        onClick={() => handleOpenGiveCards(user)}
+                        className="text-yellow-400 hover:text-yellow-300 text-sm font-medium"
+                      >
+                        Cartas
                       </button>
                       <button
                         onClick={() => {
@@ -574,6 +646,127 @@ export function UserList({ users }: { users: User[] }) {
                 )}
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Give Cards Modal */}
+      {givingCards && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="glass rounded-xl p-5 lg:p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg lg:text-xl font-bold text-white mb-2">Dar Cartas</h2>
+            <p className="text-gray-400 text-sm mb-4">
+              Usuario: <span className="text-white font-medium">{givingCards.email}</span>
+            </p>
+
+            {cardsError && (
+              <div className="bg-red-500/20 border border-red-500/30 text-red-400 p-3 rounded-xl mb-4 text-sm">{cardsError}</div>
+            )}
+
+            {/* Collection Filter */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Colección:
+              </label>
+              <select
+                value={selectedPhotoId.split('-')[0] || ''}
+                onChange={(e) => {
+                  setSelectedPhotoId('')
+                  const collectionPhotos = allPhotos.filter(p => p.collectionId === e.target.value)
+                  if (collectionPhotos.length > 0) {
+                    // Filter will be applied to show only this collection's photos
+                  }
+                }}
+                className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-yellow-500/50"
+              >
+                <option value="" className="bg-[#1e293b]">Seleccionar colección</option>
+                {Array.from(new Set(allPhotos.map(p => p.collectionId))).map(collectionId => {
+                  const photo = allPhotos.find(p => p.collectionId === collectionId)
+                  return (
+                    <option key={collectionId} value={collectionId} className="bg-[#1e293b]">
+                      {photo?.collectionName} {photo?.collectionActive ? '(Activa)' : ''}
+                    </option>
+                  )
+                })}
+              </select>
+            </div>
+
+            {/* Photo Selection */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Carta:
+              </label>
+              <select
+                value={selectedPhotoId}
+                onChange={(e) => setSelectedPhotoId(e.target.value)}
+                className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-yellow-500/50"
+              >
+                <option value="" className="bg-[#1e293b]">Seleccionar carta</option>
+                {allPhotos
+                  .filter(p => !selectedPhotoId.split('-')[0] || p.collectionId === document.querySelector('select')?.value)
+                  .map(photo => (
+                    <option key={photo.id} value={photo.id} className="bg-[#1e293b]">
+                      [{rarityConfig[photo.rarity].label}] {photo.collectionName} {photo.collectionActive ? '●' : ''}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            {/* Quantity */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Cantidad:
+              </label>
+              <input
+                type="number"
+                value={cardQuantity}
+                onChange={(e) => setCardQuantity(e.target.value)}
+                min="1"
+                className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-yellow-500/50"
+                placeholder="1"
+              />
+            </div>
+
+            {/* Photo Preview */}
+            {selectedPhotoId && (
+              <div className="mb-6 flex justify-center">
+                <div className="relative">
+                  {allPhotos.find(p => p.id === selectedPhotoId) && (
+                    <>
+                      <img
+                        src={allPhotos.find(p => p.id === selectedPhotoId)?.thumbnailUrl || allPhotos.find(p => p.id === selectedPhotoId)?.url || ''}
+                        alt=""
+                        className="w-32 h-32 object-cover rounded-lg border-2 border-white/20"
+                      />
+                      <span className={`absolute bottom-0 left-0 right-0 text-center text-xs font-medium py-1 ${rarityConfig[allPhotos.find(p => p.id === selectedPhotoId)?.rarity || 'COMMON'].bg} ${rarityConfig[allPhotos.find(p => p.id === selectedPhotoId)?.rarity || 'COMMON'].text}`}>
+                        {rarityConfig[allPhotos.find(p => p.id === selectedPhotoId)?.rarity || 'COMMON'].label}
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleGiveCards}
+                disabled={loadingCards || !selectedPhotoId}
+                className="flex-1 py-3 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-600 text-white font-medium shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                {loadingCards ? 'Dando...' : 'Dar Cartas'}
+              </button>
+              <button
+                onClick={() => {
+                  setGivingCards(null)
+                  setSelectedPhotoId('')
+                  setCardQuantity('1')
+                  setCardsError('')
+                }}
+                className="flex-1 py-3 rounded-xl bg-white/5 text-gray-300 hover:bg-white/10 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
           </div>
         </div>
       )}

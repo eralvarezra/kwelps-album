@@ -194,3 +194,85 @@ export async function getAllUsersWithWallets() {
       : null,
   }))
 }
+
+/**
+ * Admin: Give cards to a user
+ */
+export async function adminGiveCards(
+  userId: string,
+  photoId: string,
+  quantity: number
+): Promise<{ success: boolean; error?: string }> {
+  await requireAdmin()
+
+  if (quantity <= 0) {
+    return { success: false, error: 'Quantity must be positive' }
+  }
+
+  // Verify photo exists
+  const photo = await prisma.photo.findUnique({
+    where: { id: photoId },
+    include: { collection: true },
+  })
+
+  if (!photo) {
+    return { success: false, error: 'Photo not found' }
+  }
+
+  // Add or update user's photo
+  await prisma.userPhoto.upsert({
+    where: {
+      userId_photoId: {
+        userId,
+        photoId,
+      },
+    },
+    create: {
+      userId,
+      photoId,
+      quantity,
+    },
+    update: {
+      quantity: {
+        increment: quantity,
+      },
+    },
+  })
+
+  revalidatePath('/admin/users')
+
+  return { success: true }
+}
+
+/**
+ * Admin: Get all photos for selection
+ */
+export async function adminGetAllPhotos() {
+  await requireAdmin()
+
+  const photos = await prisma.photo.findMany({
+    include: {
+      collection: {
+        select: {
+          id: true,
+          name: true,
+          active: true,
+        },
+      },
+    },
+    orderBy: [
+      { collection: { createdAt: 'desc' } },
+      { rarity: 'asc' },
+    ],
+  })
+
+  return photos.map((photo) => ({
+    id: photo.id,
+    url: photo.url,
+    thumbnailUrl: photo.thumbnailUrl,
+    rarity: photo.rarity,
+    collectionId: photo.collectionId,
+    collectionName: photo.collection.name,
+    collectionActive: photo.collection.active,
+  }))
+}

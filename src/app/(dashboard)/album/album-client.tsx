@@ -231,9 +231,11 @@ export function AlbumClient({
   const toggleLegendarySelection = (photo: Photo) => {
     if (photo.rarity !== 'LEGENDARY') return
     if (selectedLegendaries.length >= 5) return
+    if (photo.quantity < 2) return // Necesita al menos 2 para poder dar 1 (dejar 1)
 
     const timesSelected = selectedLegendaries.filter((p) => p.id === photo.id).length
-    if (timesSelected >= photo.quantity) return
+    // Solo puede seleccionar hasta (quantity - 1) para siempre dejar 1
+    if (timesSelected >= photo.quantity - 1) return
 
     setSelectedLegendaries([...selectedLegendaries, photo])
   }
