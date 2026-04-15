@@ -1,6 +1,15 @@
+import sharp from 'sharp'
 import { createClient } from '@/lib/supabase/server'
 
 const BUCKET_NAME = 'photos'
+
+async function generateThumbnail(buffer: Buffer): Promise<Buffer> {
+  return await sharp(buffer)
+    .resize({ height: 100, withoutEnlargement: true })
+    .blur(10)
+    .jpeg({ quality: 60 })
+    .toBuffer()
+}
 
 export async function uploadPhoto(
   file: File,
@@ -9,32 +18,58 @@ export async function uploadPhoto(
   const supabase = await createClient()
 
   // Generate unique filename
-  const ext = file.name.split('.').pop()
-  const fileName = `photos/${collectionId}/original-${crypto.randomUUID()}.${ext}`
+  const ext = file.name.split('.').pop() || 'jpg'
+  const uuid = crypto.randomUUID()
+  const originalPath = `photos/${collectionId}/original-${uuid}.${ext}`
+  const thumbnailPath = `photos/${collectionId}/thumbnail-${uuid}.jpg`
 
-  // Upload to Supabase Storage
-  const { data, error } = await supabase.storage
+  // Convert File to Buffer
+  const arrayBuffer = await file.arrayBuffer()
+  const originalBuffer = Buffer.from(arrayBuffer)
+
+  // Generate thumbnail
+  const thumbnailBuffer = await generateThumbnail(originalBuffer)
+
+  // Upload original
+  const { error: originalError } = await supabase.storage
     .from(BUCKET_NAME)
-    .upload(fileName, file, {
+    .upload(originalPath, originalBuffer, {
+      contentType: file.type,
       cacheControl: '3600',
       upsert: false,
     })
 
-  if (error) {
-    throw new Error(`Upload failed: ${error.message}`)
+  if (originalError) {
+    throw new Error(`Upload failed: ${originalError.message}`)
   }
 
-  // Get public URL
-  const { data: urlData } = supabase.storage
+  // Upload thumbnail
+  const { error: thumbnailError } = await supabase.storage
     .from(BUCKET_NAME)
-    .getPublicUrl(data.path)
+    .upload(thumbnailPath, thumbnailBuffer, {
+      contentType: 'image/jpeg',
+      cacheControl: '3600',
+      upsert: false,
+    })
 
-  // Generate thumbnail URL using Supabase transformation
-  const thumbnailUrl = `${urlData.publicUrl}?width=200&height=200&resize=cover`
+  if (thumbnailError) {
+    // Try to clean up original if thumbnail fails
+    await supabase.storage.from(BUCKET_NAME).remove([originalPath])
+    throw new Error(`Thumbnail upload failed: ${thumbnailError.message}`)
+  }
+
+  // Get public URLs
+  const { data: originalUrl } = supabase.storage
+    .from(BUCKET_NAME)
+    .getPublicUrl(originalPath)
+
+  const { data: thumbnailUrl } = supabase.storage
+    .from(BUCKET_NAME)
+    .getPublicUrl(thumbnailPath)
 
   return {
-    url: urlData.publicUrl,
-    thumbnailUrl,
+    url: originalUrl.publicUrl,
+    thumbnailUrl: thumbnailUrl.publicUrl,
   }
 }
 
