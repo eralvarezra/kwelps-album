@@ -21,9 +21,9 @@ import { Pool } from 'pg'
 
 // Constants matching supabase-storage.ts
 const BUCKET_NAME = 'photos'
-const THUMBNAIL_HEIGHT = 100
-const THUMBNAIL_BLUR = 10
-const THUMBNAIL_QUALITY = 60
+const THUMBNAIL_HEIGHT = 200
+const THUMBNAIL_BLUR = 3
+const THUMBNAIL_QUALITY = 70
 
 // Progress tracking
 interface MigrationStats {
@@ -123,16 +123,11 @@ async function uploadThumbnail(
     .upload(path, buffer, {
       contentType: 'image/jpeg',
       cacheControl: '3600',
-      upsert: false,
+      upsert: true,  // Overwrite existing thumbnails
     })
 
   if (error) {
-    // If file already exists, we can use it (idempotency)
-    if (error.message.includes('already exists') || error.message.includes('duplicate')) {
-      // File already there, return the URL
-    } else {
-      return null
-    }
+    return null
   }
 
   const { data } = supabase.storage
@@ -148,14 +143,7 @@ async function migratePhoto(
   photo: { id: string; url: string; thumbnailUrl: string | null; collectionId: string },
   stats: MigrationStats
 ): Promise<void> {
-  // Check if thumbnail needs to be generated
-  // Skip if thumbnailUrl is already different from url (already migrated)
-  if (photo.thumbnailUrl && photo.thumbnailUrl !== photo.url) {
-    stats.skipped++
-    console.log(`[SKIP] Photo ${photo.id}: already has a distinct thumbnail`)
-    return
-  }
-
+  // Always regenerate thumbnails with new settings
   console.log(`[PROCESS] Photo ${photo.id}: generating thumbnail...`)
 
   // Extract path from original URL
