@@ -809,3 +809,374 @@ export async function sellLegendary(
 
   return { success: true, newBalance: result.newBalance }
 }
+
+/**
+ * Check if user has completed a collection (has all photos)
+ */
+export async function checkCollectionCompletion(collectionId: string) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { completed: false, totalPhotos: 0, collectedPhotos: 0 }
+  }
+
+  // Get all photos in the collection
+  const collection = await prisma.collection.findUnique({
+    where: { id: collectionId },
+    include: {
+      photos: {
+        select: { id: true, rarity: true },
+      },
+    },
+  })
+
+  if (!collection) {
+    return { completed: false, totalPhotos: 0, collectedPhotos: 0 }
+  }
+
+  // Get user's photos in this collection
+  const userPhotos = await prisma.userPhoto.findMany({
+    where: {
+      userId: user.id,
+      photo: {
+        collectionId,
+      },
+      quantity: { gte: 1 },
+    },
+    select: { photoId: true },
+  })
+
+  const collectedPhotoIds = new Set(userPhotos.map((up) => up.photoId))
+  const totalPhotos = collection.photos.length
+  const collectedPhotos = collection.photos.filter((p) => collectedPhotoIds.has(p.id)).length
+  const completed = totalPhotos > 0 && collectedPhotos === totalPhotos
+
+  // Count duplicates
+  const allUserPhotosInCollection = await prisma.userPhoto.findMany({
+    where: {
+      userId: user.id,
+      photo: {
+        collectionId,
+      },
+      quantity: { gte: 1 },
+    },
+    include: {
+      photo: {
+        select: { rarity: true },
+      },
+    },
+  })
+
+  const duplicatesByRarity: Record<string, number> = {
+    COMMON: 0,
+    RARE: 0,
+    EPIC: 0,
+    LEGENDARY: 0,
+  }
+
+  for (const up of allUserPhotosInCollection) {
+    if (up.quantity > 1) {
+      duplicatesByRarity[up.photo.rarity] += up.quantity - 1
+    }
+  }
+
+  return {
+    completed,
+    totalPhotos,
+    collectedPhotos,
+    duplicatesByRarity,
+  }
+}
+
+/**
+ * Get all completed collections for the user
+ */
+export async function getCompletedCollections() {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return []
+  }
+
+  // Get all collections
+  const collections = await prisma.collection.findMany({
+    include: {
+      photos: {
+        select: { id: true, rarity: true },
+      },
+    },
+  })
+
+  // Get all user photos
+  const userPhotos = await prisma.userPhoto.findMany({
+    where: {
+      userId: user.id,
+      quantity: { gte: 1 },
+    },
+    include: {
+      photo: {
+        select: {
+          collectionId: true,
+          rarity: true,
+        },
+      },
+    },
+  })
+
+  // Group user photos by collection
+  const userPhotosByCollection = new Map<string, Set<string>>()
+  for (const up of userPhotos) {
+    const collectionId = up.photo.collectionId
+    if (!userPhotosByCollection.has(collectionId)) {
+      userPhotosByCollection.set(collectionId, new Set())
+    }
+    userPhotosByCollection.get(collectionId)!.add(up.photoId)
+  }
+
+  // Find completed collections and count duplicates
+  const completedCollections: {
+    id: string
+    name: string
+    active: boolean
+    totalPhotos: number
+    duplicatesByRarity: Record<string, number>
+  }[] = []
+
+  for (const collection of collections) {
+    const collectedIds = userPhotosByCollection.get(collection.id) || new Set()
+    const allPhotoIds = collection.photos.map((p) => p.id)
+    const isComplete = allPhotoIds.every((id) => collectedIds.has(id))
+
+    if (isComplete && allPhotoIds.length > 0) {
+      // Count duplicates
+      const duplicatesByRarity: Record<string, number> = {
+        COMMON: 0,
+        RARE: 0,
+        EPIC: 0,
+        LEGENDARY: 0,
+      }
+
+      for (const up of userPhotos) {
+        if (up.photo.collectionId === collection.id && up.quantity > 1) {
+          duplicatesByRarity[up.photo.rarity] += up.quantity - 1
+        }
+      }
+
+      completedCollections.push({
+        id: collection.id,
+        name: collection.name,
+        active: collection.active,
+        totalPhotos: allPhotoIds.length,
+        duplicatesByRarity,
+      })
+    }
+  }
+
+  return completedCollections
+}
+
+/**
+ * Exchange duplicate cards from a completed collection for a card from another collection
+ * Requires 5 duplicate cards of the same rarity
+ */
+export async function exchangeCrossCollection(
+  photoIds: string[], // 5 duplicate cards from completed collection
+  targetCollectionId: string, // Collection to receive card from
+  targetRarity: 'COMMON' | 'RARE' | 'EPIC' | 'LEGENDARY' // Desired rarity
+): Promise<{ success: boolean; newPhoto?: { id: string; url: string; thumbnailUrl: string | null; rarity: Rarity; collectionName: string }; error?: string }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { success: false, error: 'Not authenticated' }
+  }
+
+  if (photoIds.length !== 5) {
+    return { success: false, error: 'You need exactly 5 cards to exchange' }
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    // Count how many times each photoId appears
+    const photoIdCounts = new Map<string, number>()
+    for (const id of photoIds) {
+      photoIdCounts.set(id, (photoIdCounts.get(id) || 0) + 1)
+    }
+
+    // Get user's photos
+    const userPhotos = await tx.userPhoto.findMany({
+      where: {
+        userId: user.id,
+        photoId: { in: [...photoIdCounts.keys()] },
+      },
+      include: { photo: { include: { collection: true } } },
+    })
+
+    // Verify user has enough quantity of each photo
+    for (const [photoId, count] of photoIdCounts) {
+      const userPhoto = userPhotos.find((up) => up.photoId === photoId)
+      if (!userPhoto || userPhoto.quantity < count) {
+        throw new Error(`You don't have enough of this card`)
+      }
+    }
+
+    // Verify all photos are from the same collection
+    const sourceCollectionIds = [...new Set(userPhotos.map((up) => up.photo.collectionId))]
+    if (sourceCollectionIds.length !== 1) {
+      throw new Error('All cards must be from the same collection')
+    }
+
+    const sourceCollectionId = sourceCollectionIds[0]
+
+    // Verify all photos have the same rarity
+    const rarities = [...new Set(userPhotos.map((up) => up.photo.rarity))]
+    if (rarities.length !== 1) {
+      throw new Error('All cards must have the same rarity')
+    }
+
+    const sourceRarity = rarities[0] as Rarity
+
+    // Verify source collection is completed
+    const sourceCollection = await tx.collection.findUnique({
+      where: { id: sourceCollectionId },
+      include: { photos: { select: { id: true } } },
+    })
+
+    if (!sourceCollection) {
+      throw new Error('Source collection not found')
+    }
+
+    // Get user's collected photos in source collection
+    const userPhotosInSource = await tx.userPhoto.findMany({
+      where: {
+        userId: user.id,
+        photo: { collectionId: sourceCollectionId },
+        quantity: { gte: 1 },
+      },
+      select: { photoId: true },
+    })
+
+    const collectedIds = new Set(userPhotosInSource.map((up) => up.photoId))
+    const isComplete = sourceCollection.photos.every((p) => collectedIds.has(p.id))
+
+    if (!isComplete) {
+      throw new Error('You must complete this collection first')
+    }
+
+    // Verify user can exchange (must keep at least 1 of each card)
+    for (const [photoId, count] of photoIdCounts) {
+      const userPhoto = userPhotos.find((up) => up.photoId === photoId)!
+      if (userPhoto.quantity === count) {
+        throw new Error('You must keep at least 1 copy of each card')
+      }
+    }
+
+    // Get target collection
+    const targetCollection = await tx.collection.findUnique({
+      where: { id: targetCollectionId },
+      include: { photos: true },
+    })
+
+    if (!targetCollection) {
+      throw new Error('Target collection not found')
+    }
+
+    // Can only exchange for same rarity
+    if (targetRarity !== sourceRarity) {
+      throw new Error('You can only exchange for cards of the same rarity')
+    }
+
+    // Get all photos of target rarity in target collection
+    const targetPhotos = targetCollection.photos.filter((p) => p.rarity === targetRarity)
+
+    if (targetPhotos.length === 0) {
+      throw new Error(`No ${targetRarity} cards in target collection`)
+    }
+
+    // Get user's photos in target collection
+    const userPhotosInTarget = await tx.userPhoto.findMany({
+      where: {
+        userId: user.id,
+        photo: {
+          collectionId: targetCollectionId,
+          rarity: targetRarity,
+        },
+      },
+      select: { photoId: true },
+    })
+
+    const ownedPhotoIds = new Set(userPhotosInTarget.map((up) => up.photoId))
+
+    // Prefer photos the user doesn't have yet
+    const unownedPhotos = targetPhotos.filter((p) => !ownedPhotoIds.has(p.id))
+
+    let selectedPhoto
+    if (unownedPhotos.length > 0) {
+      selectedPhoto = unownedPhotos[Math.floor(Math.random() * unownedPhotos.length)]
+    } else {
+      selectedPhoto = targetPhotos[Math.floor(Math.random() * targetPhotos.length)]
+    }
+
+    // Deduct quantities from source cards
+    for (const [photoId, count] of photoIdCounts) {
+      const userPhoto = userPhotos.find((up) => up.photoId === photoId)!
+      if (userPhoto.quantity > count) {
+        await tx.userPhoto.update({
+          where: { id: userPhoto.id },
+          data: { quantity: { decrement: count } },
+        })
+      } else {
+        await tx.userPhoto.delete({
+          where: { id: userPhoto.id },
+        })
+      }
+    }
+
+    // Add the new card from target collection
+    const existingNewPhoto = await tx.userPhoto.findUnique({
+      where: {
+        userId_photoId: {
+          userId: user.id,
+          photoId: selectedPhoto.id,
+        },
+      },
+    })
+
+    if (existingNewPhoto) {
+      await tx.userPhoto.update({
+        where: { id: existingNewPhoto.id },
+        data: { quantity: { increment: 1 } },
+      })
+    } else {
+      await tx.userPhoto.create({
+        data: {
+          userId: user.id,
+          photoId: selectedPhoto.id,
+          quantity: 1,
+        },
+      })
+    }
+
+    return {
+      newPhoto: {
+        id: selectedPhoto.id,
+        url: selectedPhoto.url,
+        thumbnailUrl: selectedPhoto.thumbnailUrl,
+        rarity: targetRarity,
+        collectionName: targetCollection.name,
+      },
+    }
+  })
+
+  revalidatePath('/album')
+  revalidatePath('/dashboard')
+
+  return { success: true, newPhoto: result.newPhoto }
+}

@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { fuseCards, exchangeLegendary, sellLegendary } from '@/lib/actions/album'
+import { fuseCards, exchangeLegendary, sellLegendary, getCompletedCollections, exchangeCrossCollection } from '@/lib/actions/album'
 import type { AlbumCollection } from '@/lib/actions/album'
 import { BookSpread } from '@/components/book/BookSpread'
 import { PhotoModal } from '@/components/book/PhotoModal'
@@ -146,7 +146,7 @@ export function AlbumClient({
   const [selectedForFusion, setSelectedForFusion] = useState<Photo[]>([])
   const [fusing, setFusing] = useState(false)
   const [fusionResult, setFusionResult] = useState<Photo | null>(null)
-  const [activeTab, setActiveTab] = useState<'book' | 'fusion' | 'legendary'>('book')
+  const [activeTab, setActiveTab] = useState<'book' | 'fusion' | 'legendary' | 'cross'>('book')
 
   // Legendary exchange state
   const [selectedLegendaries, setSelectedLegendaries] = useState<Photo[]>([])
@@ -156,6 +156,37 @@ export function AlbumClient({
   // Legendary sell state
   const [sellingLegendary, setSellingLegendary] = useState(false)
   const [sellResult, setSellResult] = useState<{ photoId: string; newBalance: number } | null>(null)
+
+  // Cross-collection exchange state
+  const [completedCollections, setCompletedCollections] = useState<{
+    id: string
+    name: string
+    active: boolean
+    totalPhotos: number
+    duplicatesByRarity: Record<string, number>
+  }[]>([])
+  const [loadingCompleted, setLoadingCompleted] = useState(false)
+  const [selectedSourceCollection, setSelectedSourceCollection] = useState<string | null>(null)
+  const [selectedSourceRarity, setSelectedSourceRarity] = useState<'COMMON' | 'RARE' | 'EPIC' | 'LEGENDARY' | null>(null)
+  const [selectedTargetCollection, setSelectedTargetCollection] = useState<string | null>(null)
+  const [exchangingCross, setExchangingCross] = useState(false)
+  const [crossExchangeResult, setCrossExchangeResult] = useState<Photo | null>(null)
+
+  // Load completed collections on mount
+  useEffect(() => {
+    async function loadCompleted() {
+      setLoadingCompleted(true)
+      try {
+        const result = await getCompletedCollections()
+        setCompletedCollections(result)
+      } catch (err) {
+        console.error('Error loading completed collections:', err)
+      } finally {
+        setLoadingCompleted(false)
+      }
+    }
+    loadCompleted()
+  }, [])
 
   const { play: playFlipSound, muted, toggleMute } = useSoundEffect('/sounds/page-flip.mp3')
 
@@ -445,6 +476,23 @@ export function AlbumClient({
               Legendario
             </span>
           </button>
+          {completedCollections.length > 0 && (
+            <button
+              onClick={() => setActiveTab('cross')}
+              className={`flex-1 py-3 px-4 text-center text-sm font-medium transition-all ${
+                activeTab === 'cross'
+                  ? 'text-emerald-400 bg-emerald-500/10 border-b-2 border-emerald-500'
+                  : 'text-gray-500 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <span className="flex items-center justify-center gap-2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
+                </svg>
+                Intercambio
+              </span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -980,6 +1028,232 @@ export function AlbumClient({
                 Nuevo Intercambio
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cross-Collection Exchange Result Modal */}
+      {crossExchangeResult && (
+        <div
+          className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+        >
+          <div className="glass rounded-3xl max-w-sm w-full p-8 text-center" onClick={e => e.stopPropagation()}>
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white">
+                <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-2">¡Intercambio Exitoso!</h2>
+            <p className="text-gray-400 mb-2">Obtuviste una carta de otra colección</p>
+            {crossExchangeResult.collectionName && (
+              <p className="text-xs text-emerald-400/80 mb-4">
+                del catálogo: {crossExchangeResult.collectionName}
+              </p>
+            )}
+
+            <div className={`relative mx-auto w-40 h-40 mb-6 rounded-2xl overflow-hidden border-2 ${
+              crossExchangeResult.rarity === 'LEGENDARY' ? 'border-yellow-500/50 card-glow-legendary' :
+              crossExchangeResult.rarity === 'EPIC' ? 'border-purple-500/50 card-glow-epic' :
+              crossExchangeResult.rarity === 'RARE' ? 'border-blue-500/50 card-glow-rare' :
+              'border-gray-500/50 card-glow-common'
+            }`}>
+              <img src={crossExchangeResult.thumbnailUrl || crossExchangeResult.url} alt="" className="w-full h-full object-cover" />
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
+                <span className={`text-sm font-bold ${
+                  crossExchangeResult.rarity === 'LEGENDARY' ? 'text-yellow-400' :
+                  crossExchangeResult.rarity === 'EPIC' ? 'text-purple-400' :
+                  crossExchangeResult.rarity === 'RARE' ? 'text-blue-400' :
+                  'text-gray-300'
+                }`}>{rarityLabels[crossExchangeResult.rarity]}</span>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setCrossExchangeResult(null)
+                  window.location.reload()
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-white/10 text-white font-medium hover:bg-white/20 transition-colors"
+              >
+                Ver Álbum
+              </button>
+              <button
+                onClick={() => setCrossExchangeResult(null)}
+                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-medium"
+              >
+                Nuevo Intercambio
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cross-Collection Exchange Tab */}
+      {activeTab === 'cross' && (
+        <div className="p-4 space-y-4 overflow-y-auto h-full">
+          <div className="glass rounded-2xl p-5">
+            <h3 className="text-lg font-bold text-white mb-2">Intercambio entre Colecciones</h3>
+            <p className="text-gray-400 text-sm mb-4">
+              Intercambia cartas repetidas de colecciones completadas por cartas de otras colecciones
+            </p>
+
+            {loadingCompleted ? (
+              <div className="text-center py-8">
+                <p className="text-gray-400">Cargando...</p>
+              </div>
+            ) : completedCollections.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-400">No tienes colecciones completadas con cartas repetidas</p>
+                <p className="text-gray-500 text-sm mt-2">Completa una colección para desbloquear esta función</p>
+              </div>
+            ) : (
+              <>
+                {/* Step 1: Select Source Collection */}
+                <div className="mb-4">
+                  <label className="text-sm text-gray-400 mb-2 block">1. Colección fuente (completada)</label>
+                  <select
+                    value={selectedSourceCollection || ''}
+                    onChange={(e) => {
+                      setSelectedSourceCollection(e.target.value || null)
+                      setSelectedSourceRarity(null)
+                      setSelectedTargetCollection(null)
+                    }}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm"
+                  >
+                    <option value="">Seleccionar colección</option>
+                    {completedCollections.map((cc) => (
+                      <option key={cc.id} value={cc.id}>
+                        {cc.name} ({Object.values(cc.duplicatesByRarity).reduce((a, b) => a + b, 0)} repetidas)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Step 2: Select Source Rarity */}
+                {selectedSourceCollection && (
+                  <div className="mb-4">
+                    <label className="text-sm text-gray-400 mb-2 block">2. Rareza a intercambiar (5 cartas)</label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {(['COMMON', 'RARE', 'EPIC', 'LEGENDARY'] as const).map((rarity) => {
+                        const sourceCol = completedCollections.find(c => c.id === selectedSourceCollection)
+                        const count = sourceCol?.duplicatesByRarity[rarity] || 0
+                        const canSelect = count >= 5
+                        const isSelected = selectedSourceRarity === rarity
+                        return (
+                          <button
+                            key={rarity}
+                            onClick={() => canSelect && setSelectedSourceRarity(rarity)}
+                            disabled={!canSelect}
+                            className={`p-3 rounded-xl text-sm font-medium transition-all ${
+                              isSelected
+                                ? 'bg-emerald-500/20 border-2 border-emerald-500/50 text-emerald-400'
+                                : canSelect
+                                  ? 'bg-white/5 border border-white/10 text-white hover:bg-white/10'
+                                  : 'bg-white/5 border border-white/5 text-gray-600 cursor-not-allowed'
+                            }`}
+                          >
+                            <div className="text-xs opacity-60">{rarityLabels[rarity]}</div>
+                            <div className={`font-bold ${canSelect ? 'text-white' : 'text-gray-600'}`}>{count}</div>
+                            {!canSelect && <div className="text-xs text-gray-600">min 5</div>}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 3: Select Target Collection */}
+                {selectedSourceRarity && (
+                  <div className="mb-4">
+                    <label className="text-sm text-gray-400 mb-2 block">3. Colección destino</label>
+                    <select
+                      value={selectedTargetCollection || ''}
+                      onChange={(e) => setSelectedTargetCollection(e.target.value || null)}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm"
+                    >
+                      <option value="">Seleccionar colección</option>
+                      {initialAlbum
+                        .filter(c => c.id !== selectedSourceCollection)
+                        .map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name} {c.active ? '(Activa)' : ''}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Exchange Button */}
+                {selectedSourceCollection && selectedSourceRarity && selectedTargetCollection && (
+                  <button
+                    onClick={async () => {
+                      const sourceCol = completedCollections.find(c => c.id === selectedSourceCollection)
+                      if (!sourceCol) return
+
+                      setExchangingCross(true)
+                      try {
+                        // Get user's duplicate cards of selected rarity from source collection
+                        const sourceCollection = initialAlbum.find(c => c.id === selectedSourceCollection)
+                        if (!sourceCollection) return
+
+                        const duplicateCards = sourceCollection.photos
+                          .filter(p => p.rarity === selectedSourceRarity && p.quantity > 1)
+                          .flatMap(p => Array(p.quantity - 1).fill(p.id))
+                          .slice(0, 5)
+
+                        if (duplicateCards.length < 5) {
+                          alert('No tienes suficientes cartas duplicadas de esta rareza')
+                          return
+                        }
+
+                        const result = await exchangeCrossCollection(
+                          duplicateCards,
+                          selectedTargetCollection,
+                          selectedSourceRarity
+                        )
+
+                        if (result.success && result.newPhoto) {
+                          setCrossExchangeResult({
+                            ...result.newPhoto,
+                            quantity: 1,
+                            obtainedAt: new Date(),
+                          })
+                          // Reset selections
+                          setSelectedSourceCollection(null)
+                          setSelectedSourceRarity(null)
+                          setSelectedTargetCollection(null)
+                          // Reload completed collections
+                          const updated = await getCompletedCollections()
+                          setCompletedCollections(updated)
+                        } else {
+                          alert(result.error || 'Error al intercambiar')
+                        }
+                      } catch (err) {
+                        console.error('Error:', err)
+                        alert('Error al intercambiar las cartas')
+                      } finally {
+                        setExchangingCross(false)
+                      }
+                    }}
+                    disabled={exchangingCross}
+                    className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-medium shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  >
+                    {exchangingCross ? 'Intercambiando...' : 'Intercambiar 5 cartas'}
+                  </button>
+                )}
+
+                {/* Info Box */}
+                <div className="mt-4 pt-4 border-t border-white/10">
+                  <p className="text-yellow-400/80 text-xs flex items-start gap-1">
+                    <svg className="w-3 h-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Proporción: 5 cartas de la misma rareza = 1 carta de la misma rareza en otra colección. Siempre recibirás una carta que no tienes (si hay disponibles).
+                  </p>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
