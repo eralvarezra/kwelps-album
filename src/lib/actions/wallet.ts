@@ -245,34 +245,60 @@ export async function adminGiveCards(
 }
 
 /**
- * Admin: Get all photos for selection
+ * Admin: Get all photos for selection with card numbers
  */
 export async function adminGetAllPhotos() {
   await requireAdmin()
 
-  const photos = await prisma.photo.findMany({
+  // Get all collections with their photos
+  const collections = await prisma.collection.findMany({
+    orderBy: { createdAt: 'desc' },
     include: {
-      collection: {
-        select: {
-          id: true,
-          name: true,
-          active: true,
-        },
+      photos: {
+        orderBy: [
+          { rarity: 'asc' },
+          { createdAt: 'asc' },
+        ],
       },
     },
-    orderBy: [
-      { collection: { createdAt: 'desc' } },
-      { rarity: 'asc' },
-    ],
   })
 
-  return photos.map((photo) => ({
-    id: photo.id,
-    url: photo.url,
-    thumbnailUrl: photo.thumbnailUrl,
-    rarity: photo.rarity,
-    collectionId: photo.collectionId,
-    collectionName: photo.collection.name,
-    collectionActive: photo.collection.active,
-  }))
+  // Rarity order for consistent numbering
+  const rarityOrder = { COMMON: 1, RARE: 2, EPIC: 3, LEGENDARY: 4 }
+
+  // Flatten and assign card numbers
+  const allPhotos: {
+    id: string
+    url: string
+    thumbnailUrl: string | null
+    rarity: 'COMMON' | 'RARE' | 'EPIC' | 'LEGENDARY'
+    collectionId: string
+    collectionName: string
+    collectionActive: boolean
+    cardNumber: number
+  }[] = []
+
+  for (const collection of collections) {
+    // Sort photos: by rarity (COMMON, RARE, EPIC, LEGENDARY), then by createdAt
+    const sortedPhotos = [...collection.photos].sort((a, b) => {
+      const rarityDiff = rarityOrder[a.rarity] - rarityOrder[b.rarity]
+      if (rarityDiff !== 0) return rarityDiff
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    })
+
+    sortedPhotos.forEach((photo, index) => {
+      allPhotos.push({
+        id: photo.id,
+        url: photo.url,
+        thumbnailUrl: photo.thumbnailUrl,
+        rarity: photo.rarity,
+        collectionId: collection.id,
+        collectionName: collection.name,
+        collectionActive: collection.active,
+        cardNumber: index + 1,
+      })
+    })
+  }
+
+  return allPhotos
 }

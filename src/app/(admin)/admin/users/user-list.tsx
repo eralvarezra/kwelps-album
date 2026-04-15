@@ -40,6 +40,7 @@ type AdminPhoto = {
   collectionId: string
   collectionName: string
   collectionActive: boolean
+  cardNumber: number
 }
 
 type CollectionProgress = {
@@ -94,6 +95,7 @@ export function UserList({ users }: { users: User[] }) {
   const [givingCards, setGivingCards] = useState<User | null>(null)
   const [allPhotos, setAllPhotos] = useState<AdminPhoto[]>([])
   const [selectedPhotoId, setSelectedPhotoId] = useState<string>('')
+  const [selectedGiveCollectionId, setSelectedGiveCollectionId] = useState<string>('')
   const [cardQuantity, setCardQuantity] = useState('1')
   const [loadingCards, setLoadingCards] = useState(false)
   const [cardsError, setCardsError] = useState('')
@@ -102,6 +104,7 @@ export function UserList({ users }: { users: User[] }) {
     setGivingCards(user)
     setAllPhotos([])
     setSelectedPhotoId('')
+    setSelectedGiveCollectionId('')
     setCardQuantity('1')
     setCardsError('')
     try {
@@ -112,6 +115,11 @@ export function UserList({ users }: { users: User[] }) {
       setCardsError('Error al cargar las cartas')
     }
   }
+
+  const filteredGivePhotos = useMemo(() => {
+    if (!selectedGiveCollectionId) return allPhotos
+    return allPhotos.filter(p => p.collectionId === selectedGiveCollectionId)
+  }, [allPhotos, selectedGiveCollectionId])
 
   async function handleGiveCards() {
     if (!givingCards || !selectedPhotoId || !cardQuantity) return
@@ -669,17 +677,14 @@ export function UserList({ users }: { users: User[] }) {
                 Colección:
               </label>
               <select
-                value={selectedPhotoId.split('-')[0] || ''}
+                value={selectedGiveCollectionId}
                 onChange={(e) => {
+                  setSelectedGiveCollectionId(e.target.value)
                   setSelectedPhotoId('')
-                  const collectionPhotos = allPhotos.filter(p => p.collectionId === e.target.value)
-                  if (collectionPhotos.length > 0) {
-                    // Filter will be applied to show only this collection's photos
-                  }
                 }}
                 className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-yellow-500/50"
               >
-                <option value="" className="bg-[#1e293b]">Seleccionar colección</option>
+                <option value="" className="bg-[#1e293b]">Todas las colecciones</option>
                 {Array.from(new Set(allPhotos.map(p => p.collectionId))).map(collectionId => {
                   const photo = allPhotos.find(p => p.collectionId === collectionId)
                   return (
@@ -702,13 +707,11 @@ export function UserList({ users }: { users: User[] }) {
                 className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-yellow-500/50"
               >
                 <option value="" className="bg-[#1e293b]">Seleccionar carta</option>
-                {allPhotos
-                  .filter(p => !selectedPhotoId.split('-')[0] || p.collectionId === document.querySelector('select')?.value)
-                  .map(photo => (
-                    <option key={photo.id} value={photo.id} className="bg-[#1e293b]">
-                      [{rarityConfig[photo.rarity].label}] {photo.collectionName} {photo.collectionActive ? '●' : ''}
-                    </option>
-                  ))}
+                {filteredGivePhotos.map(photo => (
+                  <option key={photo.id} value={photo.id} className="bg-[#1e293b]">
+                    #{photo.cardNumber} - {rarityConfig[photo.rarity].label}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -731,18 +734,24 @@ export function UserList({ users }: { users: User[] }) {
             {selectedPhotoId && (
               <div className="mb-6 flex justify-center">
                 <div className="relative">
-                  {allPhotos.find(p => p.id === selectedPhotoId) && (
-                    <>
-                      <img
-                        src={allPhotos.find(p => p.id === selectedPhotoId)?.thumbnailUrl || allPhotos.find(p => p.id === selectedPhotoId)?.url || ''}
-                        alt=""
-                        className="w-32 h-32 object-cover rounded-lg border-2 border-white/20"
-                      />
-                      <span className={`absolute bottom-0 left-0 right-0 text-center text-xs font-medium py-1 ${rarityConfig[allPhotos.find(p => p.id === selectedPhotoId)?.rarity || 'COMMON'].bg} ${rarityConfig[allPhotos.find(p => p.id === selectedPhotoId)?.rarity || 'COMMON'].text}`}>
-                        {rarityConfig[allPhotos.find(p => p.id === selectedPhotoId)?.rarity || 'COMMON'].label}
-                      </span>
-                    </>
-                  )}
+                  {allPhotos.find(p => p.id === selectedPhotoId) && (() => {
+                    const photo = allPhotos.find(p => p.id === selectedPhotoId)!
+                    return (
+                      <>
+                        <img
+                          src={photo.thumbnailUrl || photo.url}
+                          alt=""
+                          className="w-32 h-32 object-cover rounded-lg border-2 border-white/20"
+                        />
+                        <span className="absolute top-1 left-1 bg-black/70 text-white text-xs font-bold px-2 py-1 rounded">
+                          #{photo.cardNumber}
+                        </span>
+                        <span className={`absolute bottom-0 left-0 right-0 text-center text-xs font-medium py-1 ${rarityConfig[photo.rarity].bg} ${rarityConfig[photo.rarity].text}`}>
+                          {rarityConfig[photo.rarity].label}
+                        </span>
+                      </>
+                    )
+                  })()}
                 </div>
               </div>
             )}
@@ -759,6 +768,7 @@ export function UserList({ users }: { users: User[] }) {
                 onClick={() => {
                   setGivingCards(null)
                   setSelectedPhotoId('')
+                  setSelectedGiveCollectionId('')
                   setCardQuantity('1')
                   setCardsError('')
                 }}
