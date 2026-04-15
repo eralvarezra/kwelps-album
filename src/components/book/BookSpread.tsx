@@ -1,8 +1,12 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AlbumPhoto } from '@/lib/actions/album'
 import { BookPage } from './BookPage'
+
+// Animation timing constants
+const FLIP_DURATION_MS = 600
+const FLIP_MIDPOINT_MS = FLIP_DURATION_MS / 2
 
 type BookSpreadProps = {
   photos: AlbumPhoto[]
@@ -20,6 +24,18 @@ export function BookSpread({
   const [currentPage, setCurrentPage] = useState(0)
   const [isFlipping, setIsFlipping] = useState(false)
   const [flipDirection, setFlipDirection] = useState<'next' | 'prev' | null>(null)
+
+  // Timeout refs for cleanup on unmount
+  const flipTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const resetTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (flipTimeoutRef.current) clearTimeout(flipTimeoutRef.current)
+      if (resetTimeoutRef.current) clearTimeout(resetTimeoutRef.current)
+    }
+  }, [])
 
   const pages: AlbumPhoto[][] = []
   for (let i = 0; i < photos.length; i += photosPerPage) {
@@ -41,14 +57,14 @@ export function BookSpread({
       setIsFlipping(true)
       onFlip?.()
 
-      setTimeout(() => {
+      flipTimeoutRef.current = setTimeout(() => {
         setCurrentPage(currentPage + 1)
-      }, 300)
+      }, FLIP_MIDPOINT_MS)
 
-      setTimeout(() => {
+      resetTimeoutRef.current = setTimeout(() => {
         setIsFlipping(false)
         setFlipDirection(null)
-      }, 600)
+      }, FLIP_DURATION_MS)
     }
   }, [currentPage, canFlipNext, isFlipping, onFlip])
 
@@ -58,14 +74,14 @@ export function BookSpread({
       setIsFlipping(true)
       onFlip?.()
 
-      setTimeout(() => {
+      flipTimeoutRef.current = setTimeout(() => {
         setCurrentPage(currentPage - 1)
-      }, 300)
+      }, FLIP_MIDPOINT_MS)
 
-      setTimeout(() => {
+      resetTimeoutRef.current = setTimeout(() => {
         setIsFlipping(false)
         setFlipDirection(null)
-      }, 600)
+      }, FLIP_DURATION_MS)
     }
   }, [currentPage, canFlipPrev, isFlipping, onFlip])
 
@@ -88,14 +104,13 @@ export function BookSpread({
               transformStyle: 'preserve-3d',
             }}
           >
-            {/* Previous page layer (for flip animation) */}
+            {/* Base layer - shows behind during flip */}
             {flipDirection === 'prev' && prevPagePhotos.length > 0 && (
               <div
-                className="absolute inset-0 page-flip-out"
+                className="absolute inset-0"
                 style={{
-                  transformOrigin: 'left center',
                   backfaceVisibility: 'hidden',
-                  zIndex: 20,
+                  zIndex: 5,
                 }}
               >
                 <BookPage
@@ -106,14 +121,12 @@ export function BookSpread({
               </div>
             )}
 
-            {/* Next page layer (for flip animation) */}
             {flipDirection === 'next' && nextPagePhotos.length > 0 && (
               <div
-                className="absolute inset-0 page-flip-out"
+                className="absolute inset-0"
                 style={{
-                  transformOrigin: 'right center',
                   backfaceVisibility: 'hidden',
-                  zIndex: 20,
+                  zIndex: 5,
                 }}
               >
                 <BookPage
@@ -124,20 +137,57 @@ export function BookSpread({
               </div>
             )}
 
-            {/* Current page - main content */}
-            <div
-              className={`w-full h-full ${isFlipping ? 'page-flip-in' : ''}`}
-              style={{
-                backfaceVisibility: 'hidden',
-                transformStyle: 'preserve-3d',
-              }}
-            >
-              <BookPage
-                photos={currentPagePhotos}
-                startIndex={startNumber}
-                onPhotoClick={onPhotoClick}
-              />
-            </div>
+            {/* Flipping layer - animates on top */}
+            {flipDirection === 'prev' && (
+              <div
+                className="absolute inset-0 page-flip-in-reverse"
+                style={{
+                  transformOrigin: 'left center',
+                  backfaceVisibility: 'hidden',
+                  zIndex: 20,
+                }}
+              >
+                <BookPage
+                  photos={currentPagePhotos}
+                  startIndex={startNumber}
+                  onPhotoClick={onPhotoClick}
+                />
+              </div>
+            )}
+
+            {flipDirection === 'next' && (
+              <div
+                className="absolute inset-0 page-flip-out"
+                style={{
+                  transformOrigin: 'left center',
+                  backfaceVisibility: 'hidden',
+                  zIndex: 20,
+                }}
+              >
+                <BookPage
+                  photos={currentPagePhotos}
+                  startIndex={startNumber}
+                  onPhotoClick={onPhotoClick}
+                />
+              </div>
+            )}
+
+            {/* Current page - main content (visible when not flipping) */}
+            {!isFlipping && (
+              <div
+                className="w-full h-full"
+                style={{
+                  backfaceVisibility: 'hidden',
+                  transformStyle: 'preserve-3d',
+                }}
+              >
+                <BookPage
+                  photos={currentPagePhotos}
+                  startIndex={startNumber}
+                  onPhotoClick={onPhotoClick}
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>
