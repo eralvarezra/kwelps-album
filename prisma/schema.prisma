@@ -1,0 +1,120 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  pityCounter  PityCounter?
+  transactions Transaction[]
+  userPhotos   UserPhoto[]
+  wallet       Wallet?
+
+  @@map("users")
+}
+
+model Wallet {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  balance   Decimal  @default(0) @db.Decimal(10, 2)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("wallets")
+}
+
+model Transaction {
+  id            String            @id @default(uuid())
+  userId        String
+  type          TransactionType
+  amount        Decimal           @db.Decimal(10, 2)
+  status        TransactionStatus @default(PENDING)
+  source        TransactionSource @default(PAYPAL)
+  paypalOrderId String?           @unique
+  createdAt     DateTime          @default(now())
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([paypalOrderId])
+  @@map("transactions")
+}
+
+model Collection {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  prize       String   @default("")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  photos      Photo[]
+
+  @@map("collections")
+}
+
+model Photo {
+  id           String      @id @default(uuid())
+  collectionId String
+  url          String
+  thumbnailUrl String?
+  rarity       Rarity
+  createdAt    DateTime    @default(now())
+  collection   Collection  @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  userPhotos   UserPhoto[]
+
+  @@index([collectionId])
+  @@map("photos")
+}
+
+model UserPhoto {
+  id         String   @id @default(uuid())
+  userId     String
+  photoId    String
+  quantity   Int      @default(1)
+  obtainedAt DateTime @default(now())
+  photo      Photo    @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, photoId])
+  @@map("user_photos")
+}
+
+model PityCounter {
+  id               String    @id @default(uuid())
+  userId           String    @unique
+  legendaryCounter Int       @default(0)
+  lastPullAt       DateTime?
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("pity_counters")
+}
+
+enum TransactionType {
+  DEPOSIT
+  PACK_PURCHASE
+  SINGLE_PURCHASE
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum TransactionSource {
+  PAYPAL
+  ADMIN
+}
+
+enum Rarity {
+  COMMON
+  RARE
+  EPIC
+  LEGENDARY
+}
