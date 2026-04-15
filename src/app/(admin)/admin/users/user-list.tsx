@@ -32,6 +32,34 @@ type Collection = {
   active: boolean
 }
 
+type CollectionProgress = {
+  id: string
+  name: string
+  active: boolean
+  totalPhotos: number
+  uniquePhotosCollected: number
+  remaining: number
+  percentage: number
+  totalByRarity: {
+    COMMON: number
+    RARE: number
+    EPIC: number
+    LEGENDARY: number
+  }
+  uniqueByRarity: {
+    COMMON: number
+    RARE: number
+    EPIC: number
+    LEGENDARY: number
+  }
+  missingByRarity: {
+    COMMON: number
+    RARE: number
+    EPIC: number
+    LEGENDARY: number
+  }
+}
+
 const rarityConfig = {
   COMMON: { bg: 'bg-gray-500/20', border: 'border-gray-500/30', text: 'text-gray-400', label: 'Común' },
   RARE: { bg: 'bg-blue-500/20', border: 'border-blue-500/30', text: 'text-blue-400', label: 'Raro' },
@@ -43,6 +71,7 @@ export function UserList({ users }: { users: User[] }) {
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [viewingCollection, setViewingCollection] = useState<User | null>(null)
   const [collections, setCollections] = useState<Collection[]>([])
+  const [collectionProgress, setCollectionProgress] = useState<CollectionProgress[]>([])
   const [collectionPhotos, setCollectionPhotos] = useState<UserPhoto[]>([])
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>('')
   const [loadingCollection, setLoadingCollection] = useState(false)
@@ -60,6 +89,7 @@ export function UserList({ users }: { users: User[] }) {
       const data = await res.json()
       setCollections(data.collections || [])
       setCollectionPhotos(data.photos || [])
+      setCollectionProgress(data.collectionProgress || [])
     } catch (err) {
       console.error('Error fetching collection:', err)
     } finally {
@@ -404,6 +434,85 @@ export function UserList({ users }: { users: User[] }) {
                     )
                   })}
                 </div>
+
+                {/* Collection Progress */}
+                {collectionProgress.length > 0 && (
+                  <div className="mb-4 lg:mb-6">
+                    <h3 className="text-sm font-medium text-gray-300 mb-3">Progreso por Colección</h3>
+                    <div className="space-y-2">
+                      {collectionProgress.map((cp) => (
+                        <div
+                          key={cp.id}
+                          className={`rounded-xl p-3 lg:p-4 border ${cp.active ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-white/5 border-white/10'}`}
+                        >
+                          <div className="flex justify-between items-center mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-white font-medium">{cp.name}</span>
+                              {cp.active && (
+                                <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400">Activa</span>
+                              )}
+                            </div>
+                            <span className={`text-lg font-bold ${cp.percentage === 100 ? 'text-emerald-400' : cp.percentage >= 50 ? 'text-yellow-400' : 'text-gray-400'}`}>
+                              {cp.percentage}%
+                            </span>
+                          </div>
+
+                          {/* Progress Bar */}
+                          <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden mb-3">
+                            <div
+                              className={`h-full rounded-full transition-all ${cp.percentage === 100 ? 'bg-emerald-500' : cp.percentage >= 50 ? 'bg-yellow-500' : 'bg-gray-500'}`}
+                              style={{ width: `${cp.percentage}%` }}
+                            />
+                          </div>
+
+                          {/* Stats by Rarity */}
+                          <div className="grid grid-cols-4 gap-2 text-xs">
+                            <div className="text-center">
+                              <span className="text-gray-500">Común</span>
+                              <p className="text-white font-medium">{cp.uniqueByRarity.COMMON}/{cp.totalByRarity.COMMON}</p>
+                              {cp.missingByRarity.COMMON > 0 && (
+                                <p className="text-gray-600">-{cp.missingByRarity.COMMON}</p>
+                              )}
+                            </div>
+                            <div className="text-center">
+                              <span className="text-blue-400">Raro</span>
+                              <p className="text-white font-medium">{cp.uniqueByRarity.RARE}/{cp.totalByRarity.RARE}</p>
+                              {cp.missingByRarity.RARE > 0 && (
+                                <p className="text-gray-600">-{cp.missingByRarity.RARE}</p>
+                              )}
+                            </div>
+                            <div className="text-center">
+                              <span className="text-purple-400">Épico</span>
+                              <p className="text-white font-medium">{cp.uniqueByRarity.EPIC}/{cp.totalByRarity.EPIC}</p>
+                              {cp.missingByRarity.EPIC > 0 && (
+                                <p className="text-gray-600">-{cp.missingByRarity.EPIC}</p>
+                              )}
+                            </div>
+                            <div className="text-center">
+                              <span className="text-yellow-400">Leg.</span>
+                              <p className="text-white font-medium">{cp.uniqueByRarity.LEGENDARY}/{cp.totalByRarity.LEGENDARY}</p>
+                              {cp.missingByRarity.LEGENDARY > 0 && (
+                                <p className="text-gray-600">-{cp.missingByRarity.LEGENDARY}</p>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Remaining */}
+                          {cp.remaining > 0 && (
+                            <p className="text-xs text-gray-500 mt-2">
+                              Faltan <span className="text-yellow-400 font-medium">{cp.remaining}</span> cartas para completar
+                            </p>
+                          )}
+                          {cp.remaining === 0 && (
+                            <p className="text-xs text-emerald-400 mt-2 font-medium">
+                              ✓ Colección completada
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {filteredPhotos.length === 0 ? (
                   <div className="text-center py-8 lg:py-12">
