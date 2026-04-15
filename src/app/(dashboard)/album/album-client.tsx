@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { fuseCards } from '@/lib/actions/album'
+import { fuseCards, exchangeLegendary } from '@/lib/actions/album'
 import type { AlbumCollection } from '@/lib/actions/album'
 import { BookSpread } from '@/components/book/BookSpread'
 import { PhotoModal } from '@/components/book/PhotoModal'
@@ -146,7 +146,12 @@ export function AlbumClient({
   const [selectedForFusion, setSelectedForFusion] = useState<Photo[]>([])
   const [fusing, setFusing] = useState(false)
   const [fusionResult, setFusionResult] = useState<Photo | null>(null)
-  const [activeTab, setActiveTab] = useState<'book' | 'fusion'>('book')
+  const [activeTab, setActiveTab] = useState<'book' | 'fusion' | 'legendary'>('book')
+
+  // Legendary exchange state
+  const [selectedLegendaries, setSelectedLegendaries] = useState<Photo[]>([])
+  const [exchangingLegendary, setExchangingLegendary] = useState(false)
+  const [legendaryExchangeResult, setLegendaryExchangeResult] = useState<Photo | null>(null)
 
   const { play: playFlipSound, muted, toggleMute } = useSoundEffect('/sounds/page-flip.mp3')
 
@@ -205,6 +210,63 @@ export function AlbumClient({
   const closeFusionResult = useCallback(() => {
     setFusionResult(null)
     // Actualizar los datos localmente sin recargar la página
+    window.location.reload()
+  }, [])
+
+  // Legendary exchange functions
+  const totalLegendariesOwned = collection?.photos
+    .filter(p => p.rarity === 'LEGENDARY')
+    .reduce((sum, p) => sum + p.quantity, 0) || 0
+
+  const uniqueLegendariesOwned = collection?.photos
+    .filter(p => p.rarity === 'LEGENDARY' && p.quantity > 0).length || 0
+
+  const totalLegendariesInCollection = collection?.photos
+    .filter(p => p.rarity === 'LEGENDARY').length || 0
+
+  const missingLegendaries = totalLegendariesInCollection - uniqueLegendariesOwned
+
+  const canExchangeLegendary = totalLegendariesOwned >= 5 && missingLegendaries > 0
+
+  const toggleLegendarySelection = (photo: Photo) => {
+    if (photo.rarity !== 'LEGENDARY') return
+    if (selectedLegendaries.length >= 5) return
+
+    const timesSelected = selectedLegendaries.filter((p) => p.id === photo.id).length
+    if (timesSelected >= photo.quantity) return
+
+    setSelectedLegendaries([...selectedLegendaries, photo])
+  }
+
+  const removeFromLegendarySelection = (index: number) => {
+    setSelectedLegendaries(selectedLegendaries.filter((_, i) => i !== index))
+  }
+
+  const handleLegendaryExchange = async () => {
+    if (selectedLegendaries.length !== 5) return
+
+    setExchangingLegendary(true)
+    try {
+      const result = await exchangeLegendary(selectedLegendaries.map((p) => p.id))
+      if (result.success && result.newPhoto) {
+        setLegendaryExchangeResult({
+          ...result.newPhoto,
+          quantity: 1,
+          obtainedAt: new Date(),
+        })
+        setSelectedLegendaries([])
+      } else {
+        alert(result.error || 'Error al intercambiar')
+      }
+    } catch {
+      alert('Error al intercambiar las cartas')
+    } finally {
+      setExchangingLegendary(false)
+    }
+  }
+
+  const closeLegendaryExchangeResult = useCallback(() => {
+    setLegendaryExchangeResult(null)
     window.location.reload()
   }, [])
 
@@ -338,6 +400,21 @@ export function AlbumClient({
                 <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
               </svg>
               Fusión
+            </span>
+          </button>
+          <button
+            onClick={() => setActiveTab('legendary')}
+            className={`flex-1 py-3 px-4 text-center text-sm font-medium transition-all ${
+              activeTab === 'legendary'
+                ? 'text-yellow-400 bg-yellow-500/10 border-b-2 border-yellow-500'
+                : 'text-gray-500 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <span className="flex items-center justify-center gap-2">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+              </svg>
+              Legendario
             </span>
           </button>
         </div>
@@ -614,6 +691,180 @@ export function AlbumClient({
                 className="flex-1 btn-primary"
               >
                 Nueva Fusión
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Legendary Exchange Tab */}
+      {activeTab === 'legendary' && collection && (
+        <div className="p-4 space-y-4 overflow-y-auto h-full">
+          {/* Exchange Info */}
+          <div className="glass rounded-2xl p-5">
+            <h3 className="text-lg font-bold text-white mb-2">Intercambio Legendario</h3>
+            <p className="text-gray-400 text-sm mb-4">
+              Intercambia 5 cartas legendarias por una carta legendaria que no tengas de esta colección
+            </p>
+
+            {/* Stats */}
+            <div className="grid grid-cols-3 gap-3 mb-5">
+              <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3">
+                <p className="text-xs text-gray-400 mb-1">Tus Legendarias</p>
+                <p className="text-xl text-white font-bold">{totalLegendariesOwned}</p>
+              </div>
+              <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3">
+                <p className="text-xs text-gray-400 mb-1">Únicas</p>
+                <p className="text-xl text-white font-bold">{uniqueLegendariesOwned}/{totalLegendariesInCollection}</p>
+              </div>
+              <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3">
+                <p className="text-xs text-gray-400 mb-1">Faltantes</p>
+                <p className="text-xl text-white font-bold">{missingLegendaries}</p>
+              </div>
+            </div>
+
+            {/* Warning if not enough */}
+            {totalLegendariesOwned < 5 && (
+              <div className="px-4 py-3 bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-yellow-400 text-sm mb-4">
+                Necesitas al menos 5 cartas legendarias para intercambiar
+              </div>
+            )}
+
+            {totalLegendariesOwned >= 5 && missingLegendaries === 0 && (
+              <div className="px-4 py-3 bg-green-500/10 border border-green-500/30 rounded-xl text-green-400 text-sm mb-4">
+                ¡Felicidades! Ya tienes todas las legendarias de esta colección
+              </div>
+            )}
+
+            {/* Selection */}
+            {selectedLegendaries.length > 0 && (
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-gray-400">
+                    Seleccionadas: {selectedLegendaries.length}/5
+                  </span>
+                  {selectedLegendaries.length === 5 && (
+                    <span className="text-xs text-emerald-400 font-medium">¡Listo para intercambiar!</span>
+                  )}
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {selectedLegendaries.map((photo, index) => (
+                    <button
+                      key={`legendary-${photo.id}-${index}`}
+                      onClick={() => removeFromLegendarySelection(index)}
+                      className="relative w-14 h-14 rounded-lg overflow-hidden border-2 border-yellow-500/50 hover:opacity-80 transition-opacity card-glow-legendary"
+                    >
+                      <img src={photo.thumbnailUrl || photo.url} alt="" className="w-full h-full object-cover" />
+                      <span className="absolute -top-1 -right-1 w-5 h-5 bg-yellow-500 rounded-full text-xs text-white flex items-center justify-center font-bold">
+                        {index + 1}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setSelectedLegendaries([])}
+                disabled={selectedLegendaries.length === 0}
+                className="flex-1 py-2.5 rounded-xl bg-white/5 text-gray-400 font-medium hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Limpiar
+              </button>
+              <button
+                onClick={handleLegendaryExchange}
+                disabled={selectedLegendaries.length !== 5 || exchangingLegendary || missingLegendaries === 0}
+                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-600 text-white font-medium shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                {exchangingLegendary ? 'Intercambiando...' : 'Intercambiar'}
+              </button>
+            </div>
+          </div>
+
+          {/* Cards Grid */}
+          <div className="glass rounded-2xl p-4">
+            <p className="text-gray-500 text-xs mb-3">
+              Selecciona 5 cartas legendarias para intercambiar
+            </p>
+            {totalLegendariesOwned >= 5 && missingLegendaries > 0 && selectedLegendaries.length < 5 && (
+              <p className="text-yellow-400/80 text-xs mb-4">
+                ⚡ Recibirás una carta legendaria que aún no tienes de esta colección
+              </p>
+            )}
+            <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+              {collection.photos
+                .filter(p => p.rarity === 'LEGENDARY' && p.quantity > 0)
+                .map((photo) => {
+                  const timesSelected = selectedLegendaries.filter(p => p.id === photo.id).length
+                  const canSelectMore = timesSelected < photo.quantity
+                  const isDisabled = !canSelectMore || selectedLegendaries.length >= 5
+
+                  return (
+                    <button
+                      key={photo.id}
+                      onClick={() => toggleLegendarySelection(photo)}
+                      disabled={isDisabled}
+                      className={`relative aspect-square rounded-lg overflow-hidden transition-all ${
+                        timesSelected > 0 ? 'ring-2 ring-yellow-500' : ''
+                      } card-glow-legendary ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105'}`}
+                    >
+                      <img src={photo.thumbnailUrl || photo.url} alt="" className="w-full h-full object-cover" />
+                      <span className="absolute top-0.5 right-0.5 text-white text-xs font-bold px-1 rounded bg-yellow-500">
+                        ×{photo.quantity}
+                      </span>
+                      {timesSelected > 0 && (
+                        <div className="absolute inset-0 bg-yellow-500/30 flex items-center justify-center">
+                          <span className="text-white font-bold">{timesSelected}</span>
+                        </div>
+                      )}
+                    </button>
+                  )
+                })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Legendary Exchange Result Modal */}
+      {legendaryExchangeResult && (
+        <div
+          className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+        >
+          <div className="glass rounded-3xl max-w-sm w-full p-8 text-center" onClick={e => e.stopPropagation()}>
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-yellow-500 to-amber-600 flex items-center justify-center">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-2">¡Intercambio Completado!</h2>
+            <p className="text-gray-400 mb-2">Obtuviste una nueva carta legendaria</p>
+            {legendaryExchangeResult.collectionName && (
+              <p className="text-xs text-amber-400/80 mb-4">
+                del catálogo: {legendaryExchangeResult.collectionName}
+              </p>
+            )}
+
+            <div className="relative mx-auto w-40 h-40 mb-6 rounded-2xl overflow-hidden border-2 border-yellow-500/50 card-glow-legendary">
+              <img src={legendaryExchangeResult.thumbnailUrl || legendaryExchangeResult.url} alt="" className="w-full h-full object-cover" />
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
+                <span className="text-sm font-bold text-yellow-400">Legendario</span>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={closeLegendaryExchangeResult}
+                className="flex-1 py-2.5 rounded-xl bg-white/10 text-white font-medium hover:bg-white/20 transition-colors"
+              >
+                Ver Álbum
+              </button>
+              <button
+                onClick={() => setLegendaryExchangeResult(null)}
+                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-600 text-white font-medium"
+              >
+                Nuevo Intercambio
               </button>
             </div>
           </div>

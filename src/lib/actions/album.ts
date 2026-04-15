@@ -489,3 +489,210 @@ export async function getFusableCards() {
 
   return fusableCards
 }
+
+/**
+ * Exchange 5 legendary cards for 1 missing legendary from the same collection
+ * The user gets a legendary they don't have yet from the same collection
+ */
+export async function exchangeLegendary(
+  photoIds: string[]
+): Promise<{ success: boolean; newPhoto?: { id: string; url: string; thumbnailUrl: string | null; rarity: Rarity; collectionName: string }; error?: string }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { success: false, error: 'Not authenticated' }
+  }
+
+  if (photoIds.length !== 5) {
+    return { success: false, error: 'You need exactly 5 legendary cards to exchange' }
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    // Count how many times each photoId appears
+    const photoIdCounts = new Map<string, number>()
+    for (const id of photoIds) {
+      photoIdCounts.set(id, (photoIdCounts.get(id) || 0) + 1)
+    }
+
+    // Get user's legendary photos with collection info
+    const userPhotos = await tx.userPhoto.findMany({
+      where: {
+        userId: user.id,
+        photoId: { in: [...photoIdCounts.keys()] },
+      },
+      include: { photo: { include: { collection: true } } },
+    })
+
+    // Verify user has enough quantity of each photo
+    for (const [photoId, count] of photoIdCounts) {
+      const userPhoto = userPhotos.find((up) => up.photoId === photoId)
+      if (!userPhoto || userPhoto.quantity < count) {
+        throw new Error(`You don't have enough of this card`)
+      }
+    }
+
+    // Verify all photos are legendary
+    const rarities = userPhotos.map((up) => up.photo.rarity)
+    const uniqueRarities = [...new Set(rarities)]
+    if (uniqueRarities.length !== 1 || uniqueRarities[0] !== 'LEGENDARY') {
+      throw new Error('All cards must be legendary')
+    }
+
+    // Verify all photos are from the same collection
+    const collectionIds = userPhotos.map((up) => up.photo.collectionId)
+    const uniqueCollectionIds = [...new Set(collectionIds)]
+    if (uniqueCollectionIds.length !== 1) {
+      throw new Error('All cards must be from the same collection')
+    }
+
+    const collectionId = uniqueCollectionIds[0]
+
+    // Get the collection
+    const collection = await tx.collection.findUnique({
+      where: { id: collectionId },
+      include: { photos: true },
+    })
+
+    if (!collection) {
+      throw new Error('Collection not found')
+    }
+
+    // Get all legendary photos from this collection
+    const allLegendaries = collection.photos.filter((p) => p.rarity === 'LEGENDARY')
+
+    if (allLegendaries.length === 0) {
+      throw new Error('No legendary cards in this collection')
+    }
+
+    // Get user's existing legendary photos in this collection
+    const userLegendaryPhotos = await tx.userPhoto.findMany({
+      where: {
+        userId: user.id,
+        photo: {
+          collectionId: collectionId,
+          rarity: 'LEGENDARY',
+        },
+      },
+      select: { photoId: true },
+    })
+
+    const ownedPhotoIds = new Set(userLegendaryPhotos.map((up) => up.photoId))
+
+    // Find legendaries the user doesn't have
+    const missingLegendaries = allLegendaries.filter((p) => !ownedPhotoIds.has(p.id))
+
+    if (missingLegendaries.length === 0) {
+      throw new Error('You already have all legendary cards in this collection!')
+    }
+
+    // Give user a random missing legendary
+    const selectedPhoto = missingLegendaries[Math.floor(Math.random() * missingLegendaries.length)]
+
+    // Deduct quantities from original cards
+    for (const [photoId, count] of photoIdCounts) {
+      const userPhoto = userPhotos.find((up) => up.photoId === photoId)!
+      if (userPhoto.quantity > count) {
+        await tx.userPhoto.update({
+          where: { id: userPhoto.id },
+          data: { quantity: { decrement: count } },
+        })
+      } else {
+        await tx.userPhoto.delete({
+          where: { id: userPhoto.id },
+        })
+      }
+    }
+
+    // Add the new legendary card
+    await tx.userPhoto.create({
+      data: {
+        userId: user.id,
+        photoId: selectedPhoto.id,
+        quantity: 1,
+      },
+    })
+
+    return {
+      newPhoto: {
+        id: selectedPhoto.id,
+        url: selectedPhoto.url,
+        thumbnailUrl: selectedPhoto.thumbnailUrl,
+        rarity: 'LEGENDARY' as Rarity,
+        collectionName: collection.name,
+      },
+    }
+  })
+
+  revalidatePath('/album')
+  revalidatePath('/dashboard')
+
+  return { success: true, newPhoto: result.newPhoto }
+}
+
+/**
+ * Get legendary exchange info for a collection
+ * Returns count of legendaries and how many missing legendaries exist
+ */
+export async function getLegendaryExchangeInfo(collectionId?: string) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return null
+  }
+
+  // Get active collection if not specified
+  let targetCollectionId = collectionId
+  if (!targetCollectionId) {
+    const activeCollection = await prisma.collection.findFirst({
+      where: { active: true },
+      select: { id: true },
+    })
+    targetCollectionId = activeCollection?.id
+  }
+
+  if (!targetCollectionId) {
+    return null
+  }
+
+  const collection = await prisma.collection.findUnique({
+    where: { id: targetCollectionId },
+    include: { photos: { where: { rarity: 'LEGENDARY' } } },
+  })
+
+  if (!collection) {
+    return null
+  }
+
+  // Get user's legendary photos in this collection
+  const userLegendaries = await prisma.userPhoto.findMany({
+    where: {
+      userId: user.id,
+      photo: {
+        collectionId: targetCollectionId,
+        rarity: 'LEGENDARY',
+      },
+    },
+    include: { photo: true },
+  })
+
+  const totalLegendariesOwned = userLegendaries.reduce((sum, up) => sum + up.quantity, 0)
+  const uniqueLegendariesOwned = userLegendaries.length
+  const totalLegendariesInCollection = collection.photos.length
+  const missingLegendaries = totalLegendariesInCollection - uniqueLegendariesOwned
+
+  return {
+    collectionId: targetCollectionId,
+    collectionName: collection.name,
+    totalLegendariesOwned,
+    uniqueLegendariesOwned,
+    totalLegendariesInCollection,
+    missingLegendaries,
+    canExchange: totalLegendariesOwned >= 5 && missingLegendaries > 0,
+  }
+}
