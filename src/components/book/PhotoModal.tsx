@@ -164,7 +164,7 @@ export function PhotoModal({ photo, allPhotos, onClose, onNavigate }: PhotoModal
         <div className={`w-full h-full max-w-[95vw] sm:max-w-[85vw] flex items-center justify-center`}>
           <div className={`relative rounded-2xl p-1 ${config.glow}`} style={{ background: 'transparent' }}>
             <img
-              src={photo.url}
+              src={photo.thumbnailUrl || photo.url}
               alt="Card"
               className="w-full h-auto max-h-[80vh] sm:max-h-[85vh] object-contain rounded-xl"
             />
