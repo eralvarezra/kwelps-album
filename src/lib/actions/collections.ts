@@ -81,13 +81,13 @@ export async function deleteCollection(id: string) {
   // Get all photos to delete from storage
   const photos = await prisma.photo.findMany({
     where: { collectionId: id },
-    select: { url: true }
+    select: { url: true, thumbnailUrl: true }
   })
 
   // Delete files from storage (best effort)
   for (const photo of photos) {
     try {
-      await deletePhoto(photo.url)
+      await deletePhoto(photo.url, photo.thumbnailUrl)
     } catch {
       // Continue even if storage delete fails
     }

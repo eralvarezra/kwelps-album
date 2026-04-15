@@ -143,7 +143,7 @@ export async function deletePhotoAction(id: string) {
 
   // Delete from storage
   try {
-    await deletePhoto(photo.url)
+    await deletePhoto(photo.url, photo.thumbnailUrl)
   } catch {
     // Continue even if storage delete fails
   }
@@ -200,7 +200,7 @@ export async function deletePhotos(photoIds: string[]): Promise<{ success: boole
     // Get photos to delete from storage
     const photos = await prisma.photo.findMany({
       where: { id: { in: photoIds } },
-      select: { id: true, url: true, collectionId: true }
+      select: { id: true, url: true, thumbnailUrl: true, collectionId: true }
     })
 
     const affectedUsersCount = await prisma.userPhoto.count({
@@ -210,7 +210,7 @@ export async function deletePhotos(photoIds: string[]): Promise<{ success: boole
     // Delete from storage
     for (const photo of photos) {
       try {
-        await deletePhoto(photo.url)
+        await deletePhoto(photo.url, photo.thumbnailUrl)
       } catch {
         // Continue even if storage delete fails
       }

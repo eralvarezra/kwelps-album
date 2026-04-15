@@ -2,13 +2,20 @@ import sharp from 'sharp'
 import { createClient } from '@/lib/supabase/server'
 
 const BUCKET_NAME = 'photos'
+const THUMBNAIL_HEIGHT = 100  // Max height in pixels; maintains aspect ratio
+const THUMBNAIL_BLUR = 10     // Gaussian blur sigma for privacy
+const THUMBNAIL_QUALITY = 60  // JPEG quality (0-100)
 
 async function generateThumbnail(buffer: Buffer): Promise<Buffer> {
-  return await sharp(buffer)
-    .resize({ height: 100, withoutEnlargement: true })
-    .blur(10)
-    .jpeg({ quality: 60 })
-    .toBuffer()
+  try {
+    return await sharp(buffer)
+      .resize({ height: THUMBNAIL_HEIGHT, withoutEnlargement: true })
+      .blur(THUMBNAIL_BLUR)
+      .jpeg({ quality: THUMBNAIL_QUALITY })
+      .toBuffer()
+  } catch (error) {
+    throw new Error('Failed to generate thumbnail. File may not be a valid image.')
+  }
 }
 
 export async function uploadPhoto(
@@ -73,7 +80,7 @@ export async function uploadPhoto(
   }
 }
 
-export async function deletePhoto(url: string): Promise<void> {
+export async function deletePhoto(url: string, thumbnailUrl?: string | null): Promise<void> {
   const supabase = await createClient()
 
   // Extract path from URL
@@ -84,8 +91,18 @@ export async function deletePhoto(url: string): Promise<void> {
   }
 
   const path = pathParts[1]
+  const pathsToDelete = [path]
 
-  const { error } = await supabase.storage.from(BUCKET_NAME).remove([path])
+  // Also delete thumbnail if provided
+  if (thumbnailUrl) {
+    const thumbUrlObj = new URL(thumbnailUrl)
+    const thumbParts = thumbUrlObj.pathname.split('/storage/v1/object/public/photos/')
+    if (thumbParts.length >= 2) {
+      pathsToDelete.push(thumbParts[1])
+    }
+  }
+
+  const { error } = await supabase.storage.from(BUCKET_NAME).remove(pathsToDelete)
 
   if (error) {
     throw new Error(`Delete failed: ${error.message}`)
