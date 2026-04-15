@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { fuseCards, exchangeLegendary } from '@/lib/actions/album'
+import { fuseCards, exchangeLegendary, sellLegendary } from '@/lib/actions/album'
 import type { AlbumCollection } from '@/lib/actions/album'
 import { BookSpread } from '@/components/book/BookSpread'
 import { PhotoModal } from '@/components/book/PhotoModal'
@@ -153,6 +153,10 @@ export function AlbumClient({
   const [exchangingLegendary, setExchangingLegendary] = useState(false)
   const [legendaryExchangeResult, setLegendaryExchangeResult] = useState<Photo | null>(null)
 
+  // Legendary sell state
+  const [sellingLegendary, setSellingLegendary] = useState(false)
+  const [sellResult, setSellResult] = useState<{ photoId: string; newBalance: number } | null>(null)
+
   const { play: playFlipSound, muted, toggleMute } = useSoundEffect('/sounds/page-flip.mp3')
 
   const collection = initialAlbum.find((c) => c.id === selectedCollection)
@@ -227,6 +231,28 @@ export function AlbumClient({
   const missingLegendaries = totalLegendariesInCollection - uniqueLegendariesOwned
 
   const canExchangeLegendary = totalLegendariesOwned >= 5 && missingLegendaries > 0
+
+  // Can sell legendary if user has all legendaries and has duplicates
+  const hasAllLegendaries = missingLegendaries === 0
+  const duplicateLegendaries = collection?.photos
+    .filter(p => p.rarity === 'LEGENDARY' && p.quantity > 1) || []
+  const canSellLegendary = hasAllLegendaries && duplicateLegendaries.length > 0
+
+  const handleSellLegendary = async (photoId: string) => {
+    setSellingLegendary(true)
+    try {
+      const result = await sellLegendary(photoId)
+      if (result.success) {
+        setSellResult({ photoId, newBalance: result.newBalance || 0 })
+      } else {
+        alert(result.error || 'Error al vender')
+      }
+    } catch {
+      alert('Error al vender la carta')
+    } finally {
+      setSellingLegendary(false)
+    }
+  }
 
   const toggleLegendarySelection = (photo: Photo) => {
     if (photo.rarity !== 'LEGENDARY') return
@@ -726,20 +752,27 @@ export function AlbumClient({
             </div>
 
             {/* Warning if not enough */}
-            {totalLegendariesOwned < 5 && (
+            {totalLegendariesOwned < 5 && !canSellLegendary && (
               <div className="px-4 py-3 bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-yellow-400 text-sm mb-4">
                 Necesitas al menos 5 cartas legendarias para intercambiar
               </div>
             )}
 
-            {totalLegendariesOwned >= 5 && missingLegendaries === 0 && (
+            {totalLegendariesOwned >= 5 && missingLegendaries === 0 && !canSellLegendary && (
               <div className="px-4 py-3 bg-green-500/10 border border-green-500/30 rounded-xl text-green-400 text-sm mb-4">
                 ¡Felicidades! Ya tienes todas las legendarias de esta colección
               </div>
             )}
 
-            {/* Selection */}
-            {selectedLegendaries.length > 0 && (
+            {/* Sell option when user has all legendaries with duplicates */}
+            {canSellLegendary && (
+              <div className="px-4 py-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-400 text-sm mb-4">
+                💰 Tienes legendarias repetidas. Véndelas por $1 cada una.
+              </div>
+            )}
+
+            {/* Selection for exchange (only when missing legendaries) */}
+            {missingLegendaries > 0 && selectedLegendaries.length > 0 && (
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm text-gray-400">
@@ -767,29 +800,43 @@ export function AlbumClient({
             )}
 
             {/* Actions */}
-            <div className="flex gap-3">
-              <button
-                onClick={() => setSelectedLegendaries([])}
-                disabled={selectedLegendaries.length === 0}
-                className="flex-1 py-2.5 rounded-xl bg-white/5 text-gray-400 font-medium hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                Limpiar
-              </button>
-              <button
-                onClick={handleLegendaryExchange}
-                disabled={selectedLegendaries.length !== 5 || exchangingLegendary || missingLegendaries === 0}
-                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-600 text-white font-medium shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-              >
-                {exchangingLegendary ? 'Intercambiando...' : 'Intercambiar'}
-              </button>
-            </div>
+            {missingLegendaries > 0 ? (
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setSelectedLegendaries([])}
+                  disabled={selectedLegendaries.length === 0}
+                  className="flex-1 py-2.5 rounded-xl bg-white/5 text-gray-400 font-medium hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Limpiar
+                </button>
+                <button
+                  onClick={handleLegendaryExchange}
+                  disabled={selectedLegendaries.length !== 5 || exchangingLegendary}
+                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-600 text-white font-medium shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  {exchangingLegendary ? 'Intercambiando...' : 'Intercambiar'}
+                </button>
+              </div>
+            ) : canSellLegendary && (
+              <div className="text-center py-2">
+                <p className="text-gray-400 text-sm mb-3">
+                  Selecciona una carta legendaria repetida para vender
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Cards Grid */}
           <div className="glass rounded-2xl p-4">
-            <p className="text-gray-500 text-xs mb-3">
-              Selecciona 5 cartas legendarias para intercambiar
-            </p>
+            {missingLegendaries > 0 ? (
+              <p className="text-gray-500 text-xs mb-3">
+                Selecciona 5 cartas legendarias para intercambiar
+              </p>
+            ) : canSellLegendary && (
+              <p className="text-emerald-400/80 text-xs mb-3">
+                💰 Haz clic en una carta repetida para venderla por $1
+              </p>
+            )}
             {totalLegendariesOwned >= 5 && missingLegendaries > 0 && selectedLegendaries.length < 5 && (
               <p className="text-yellow-400/80 text-xs mb-4">
                 ⚡ Recibirás una carta legendaria que aún no tienes de esta colección
@@ -799,31 +846,95 @@ export function AlbumClient({
               {collection.photos
                 .filter(p => p.rarity === 'LEGENDARY' && p.quantity > 0)
                 .map((photo) => {
-                  const timesSelected = selectedLegendaries.filter(p => p.id === photo.id).length
-                  const canSelectMore = timesSelected < photo.quantity
-                  const isDisabled = !canSelectMore || selectedLegendaries.length >= 5
+                  const isDuplicate = photo.quantity > 1
 
+                  // Exchange mode (missing legendaries)
+                  if (missingLegendaries > 0) {
+                    const timesSelected = selectedLegendaries.filter(p => p.id === photo.id).length
+                    const canSelectMore = timesSelected < photo.quantity - 1 // Must leave 1
+                    const isDisabled = !canSelectMore || selectedLegendaries.length >= 5
+
+                    return (
+                      <button
+                        key={photo.id}
+                        onClick={() => toggleLegendarySelection(photo)}
+                        disabled={isDisabled}
+                        className={`relative aspect-square rounded-lg overflow-hidden transition-all ${
+                          timesSelected > 0 ? 'ring-2 ring-yellow-500' : ''
+                        } card-glow-legendary ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105'}`}
+                      >
+                        <img src={photo.thumbnailUrl || photo.url} alt="" className="w-full h-full object-cover" />
+                        <span className="absolute top-0.5 right-0.5 text-white text-xs font-bold px-1 rounded bg-yellow-500">
+                          ×{photo.quantity}
+                        </span>
+                        {timesSelected > 0 && (
+                          <div className="absolute inset-0 bg-yellow-500/30 flex items-center justify-center">
+                            <span className="text-white font-bold">{timesSelected}</span>
+                          </div>
+                        )}
+                      </button>
+                    )
+                  }
+
+                  // Sell mode (has all legendaries)
                   return (
                     <button
                       key={photo.id}
-                      onClick={() => toggleLegendarySelection(photo)}
-                      disabled={isDisabled}
-                      className={`relative aspect-square rounded-lg overflow-hidden transition-all ${
-                        timesSelected > 0 ? 'ring-2 ring-yellow-500' : ''
-                      } card-glow-legendary ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105'}`}
+                      onClick={() => isDuplicate && handleSellLegendary(photo.id)}
+                      disabled={!isDuplicate || sellingLegendary}
+                      className={`relative aspect-square rounded-lg overflow-hidden transition-all card-glow-legendary ${
+                        isDuplicate ? 'hover:scale-105 cursor-pointer' : 'opacity-50 cursor-not-allowed'
+                      } ${sellingLegendary ? 'opacity-70' : ''}`}
                     >
                       <img src={photo.thumbnailUrl || photo.url} alt="" className="w-full h-full object-cover" />
                       <span className="absolute top-0.5 right-0.5 text-white text-xs font-bold px-1 rounded bg-yellow-500">
                         ×{photo.quantity}
                       </span>
-                      {timesSelected > 0 && (
-                        <div className="absolute inset-0 bg-yellow-500/30 flex items-center justify-center">
-                          <span className="text-white font-bold">{timesSelected}</span>
+                      {isDuplicate && (
+                        <div className="absolute bottom-0 left-0 right-0 bg-emerald-500/80 text-center py-0.5">
+                          <span className="text-xs text-white font-bold">+$1</span>
                         </div>
                       )}
                     </button>
                   )
                 })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sell Result Modal */}
+      {sellResult && (
+        <div
+          className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+        >
+          <div className="glass rounded-3xl max-w-sm w-full p-8 text-center" onClick={e => e.stopPropagation()}>
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white">
+                <path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-2">¡Venta Completada!</h2>
+            <p className="text-gray-400 mb-4">Has vendido una carta legendaria repetida</p>
+
+            <div className="bg-emerald-500/20 border border-emerald-500/30 rounded-xl p-4 mb-6">
+              <p className="text-emerald-400 text-lg font-bold">+$1.00</p>
+              <p className="text-gray-400 text-sm">Nuevo saldo: ${sellResult.newBalance.toFixed(2)}</p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => window.location.reload()}
+                className="flex-1 py-2.5 rounded-xl bg-white/10 text-white font-medium hover:bg-white/20 transition-colors"
+              >
+                Ver Álbum
+              </button>
+              <button
+                onClick={() => setSellResult(null)}
+                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-medium"
+              >
+                Vender Otra
+              </button>
             </div>
           </div>
         </div>

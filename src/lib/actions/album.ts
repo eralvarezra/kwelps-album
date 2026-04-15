@@ -700,3 +700,112 @@ export async function getLegendaryExchangeInfo(collectionId?: string) {
     canExchange: totalLegendariesOwned >= 5 && missingLegendaries > 0,
   }
 }
+
+/**
+ * Sell a duplicate legendary card for $1 balance
+ * Only available when user has all legendaries in the collection
+ */
+export async function sellLegendary(
+  photoId: string
+): Promise<{ success: boolean; error?: string; newBalance?: number }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { success: false, error: 'Not authenticated' }
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    // Get user's photo
+    const userPhoto = await tx.userPhoto.findFirst({
+      where: {
+        userId: user.id,
+        photoId,
+      },
+      include: {
+        photo: {
+          include: { collection: true },
+        },
+      },
+    })
+
+    if (!userPhoto || userPhoto.quantity < 1) {
+      throw new Error('You don\'t have this card')
+    }
+
+    // Verify it's legendary
+    if (userPhoto.photo.rarity !== 'LEGENDARY') {
+      throw new Error('Only legendary cards can be sold')
+    }
+
+    const collectionId = userPhoto.photo.collectionId
+
+    // Get all legendary photos in this collection
+    const allLegendaries = await tx.photo.findMany({
+      where: {
+        collectionId,
+        rarity: 'LEGENDARY',
+      },
+    })
+
+    // Get user's existing legendary photos in this collection
+    const userLegendaries = await tx.userPhoto.findMany({
+      where: {
+        userId: user.id,
+        photo: {
+          collectionId,
+          rarity: 'LEGENDARY',
+        },
+      },
+      select: { photoId: true },
+    })
+
+    const ownedPhotoIds = new Set(userLegendaries.map((up) => up.photoId))
+
+    // Check if user has all legendaries in this collection
+    const hasAllLegendaries = allLegendaries.every((p) => ownedPhotoIds.has(p.id))
+
+    if (!hasAllLegendaries) {
+      throw new Error('You can only sell legendary cards when you have all legendaries in the collection')
+    }
+
+    // Check if user has more than 1 of this card (must keep at least 1)
+    if (userPhoto.quantity <= 1) {
+      throw new Error('You must keep at least 1 copy of each legendary card')
+    }
+
+    // Deduct the card
+    await tx.userPhoto.update({
+      where: { id: userPhoto.id },
+      data: { quantity: { decrement: 1 } },
+    })
+
+    // Add $1 to user's balance via wallet and transaction
+    const wallet = await tx.wallet.upsert({
+      where: { userId: user.id },
+      create: { userId: user.id, balance: 1, adminBalance: 0 },
+      update: { balance: { increment: 1 } },
+    })
+
+    // Create transaction record
+    await tx.transaction.create({
+      data: {
+        userId: user.id,
+        type: 'DEPOSIT',
+        amount: 1,
+        status: 'COMPLETED',
+        source: 'ADMIN', // Using ADMIN source for legendary sales
+      },
+    })
+
+    return { newBalance: wallet.balance.toNumber() }
+  })
+
+  revalidatePath('/album')
+  revalidatePath('/dashboard')
+  revalidatePath('/wallet')
+
+  return { success: true, newBalance: result.newBalance }
+}
