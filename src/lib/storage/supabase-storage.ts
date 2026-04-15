@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 
 const BUCKET_NAME = 'photos'
 const THUMBNAIL_HEIGHT = 200  // Max height in pixels; maintains aspect ratio
-const THUMBNAIL_BLUR = 3      // Gaussian blur sigma for privacy (light blur)
+const THUMBNAIL_BLUR = 1      // Gaussian blur sigma for privacy (very light blur)
 const THUMBNAIL_QUALITY = 70  // JPEG quality (0-100)
 
 async function generateThumbnail(buffer: Buffer): Promise<Buffer> {

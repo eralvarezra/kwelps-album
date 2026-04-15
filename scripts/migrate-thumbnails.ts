@@ -22,7 +22,7 @@ import { Pool } from 'pg'
 // Constants matching supabase-storage.ts
 const BUCKET_NAME = 'photos'
 const THUMBNAIL_HEIGHT = 200
-const THUMBNAIL_BLUR = 3
+const THUMBNAIL_BLUR = 1
 const THUMBNAIL_QUALITY = 70
 
 // Progress tracking
