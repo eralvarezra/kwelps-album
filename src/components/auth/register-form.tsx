@@ -44,6 +44,10 @@ export function RegisterForm() {
         // Manejar errores específicos
         if (signUpError.message.includes('already registered')) {
           setError('Este correo ya está registrado. Intenta iniciar sesión.')
+        } else if (signUpError.message.includes('rate limit') || signUpError.message.includes('Email rate limit')) {
+          setError('Has excedido el límite de intentos de registro. Por favor espera unos minutos e intenta de nuevo.')
+        } else if (signUpError.message.includes('Unable to send email') || signUpError.message.includes('email')) {
+          setError('No se pudo enviar el correo de confirmación. Por favor intenta de nuevo en unos minutos.')
         } else {
           setError(signUpError.message)
         }

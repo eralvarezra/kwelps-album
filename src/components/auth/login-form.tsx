@@ -49,6 +49,8 @@ export function LoginForm() {
         // Otros errores
         if (loginError.message.includes('Invalid login credentials')) {
           setError('Correo o contraseña incorrectos')
+        } else if (loginError.message.includes('rate limit') || loginError.message.includes('Rate limit')) {
+          setError('Has excedido el límite de intentos. Por favor espera unos minutos e intenta de nuevo.')
         } else {
           setError(loginError.message)
         }
