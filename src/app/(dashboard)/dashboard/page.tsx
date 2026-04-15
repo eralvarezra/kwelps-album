@@ -58,16 +58,18 @@ export default async function DashboardPage() {
   const uniquePhotos = photoCount
 
   // Get one random common photo per collection
-  const collectionsWithPhotos = activeCollections.map(collection => {
-    const randomIndex = Math.floor(Math.random() * collection.photos.length)
-    const randomPhoto = collection.photos[randomIndex]
-    return {
-      id: collection.id,
-      name: collection.name,
-      prize: collection.prize,
-      photo: randomPhoto || null,
-    }
-  }).filter(c => c.photo) // Only show collections with photos
+  const collectionsWithPhotos = activeCollections
+    .filter(collection => collection.photos.length > 0)
+    .map(collection => {
+      const randomIndex = Math.floor(Math.random() * collection.photos.length)
+      const randomPhoto = collection.photos[randomIndex]
+      return {
+        id: collection.id,
+        name: collection.name,
+        prize: collection.prize,
+        photo: randomPhoto,
+      }
+    })
 
   return (
     <div>
@@ -137,8 +139,9 @@ export default async function DashboardPage() {
                 <div className="relative h-48 rounded-xl overflow-hidden border border-white/10 hover:border-purple-500/50 transition-colors">
                   {/* Background photo */}
                   <img
-                    src={collection.photo?.url || ''}
+                    src={collection.photo?.thumbnailUrl || collection.photo?.url || ''}
                     alt=""
+                    aria-hidden="true"
                     className="absolute inset-0 w-full h-full object-cover"
                   />
                   {/* Dark overlay */}
