@@ -2,11 +2,13 @@
 
 import { useState, useMemo } from 'react'
 import { adminAddBalance, adminDeductBalance, adminGiveCards, adminGetAllPhotos } from '@/lib/actions/wallet'
+import { confirmUserEmail } from '@/lib/actions/admin-users'
 
 type User = {
   id: string
   email: string
   createdAt: string
+  emailConfirmed: boolean
   wallet: {
     balance: number
     adminBalance: number
@@ -100,6 +102,9 @@ export function UserList({ users }: { users: User[] }) {
   const [loadingCards, setLoadingCards] = useState(false)
   const [cardsError, setCardsError] = useState('')
 
+  // Confirm email state
+  const [confirmingEmail, setConfirmingEmail] = useState<string | null>(null)
+
   async function handleOpenGiveCards(user: User) {
     setGivingCards(user)
     setAllPhotos([])
@@ -145,6 +150,23 @@ export function UserList({ users }: { users: User[] }) {
       setCardsError('Error al dar cartas')
     } finally {
       setLoadingCards(false)
+    }
+  }
+
+  async function handleConfirmEmail(userId: string) {
+    setConfirmingEmail(userId)
+    try {
+      const result = await confirmUserEmail(userId)
+      if (result.success) {
+        window.location.reload()
+      } else {
+        alert(result.error || 'Error al confirmar email')
+      }
+    } catch (err) {
+      console.error('Error confirming email:', err)
+      alert('Error al confirmar el email')
+    } finally {
+      setConfirmingEmail(null)
     }
   }
 
@@ -224,7 +246,14 @@ export function UserList({ users }: { users: User[] }) {
           <div key={user.id} className="glass rounded-xl p-4">
             <div className="flex justify-between items-start mb-3">
               <div className="min-w-0 flex-1">
-                <p className="text-white font-medium truncate">{user.email}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-white font-medium truncate">{user.email}</p>
+                  {!user.emailConfirmed && (
+                    <span className="px-2 py-0.5 text-xs font-medium rounded bg-red-500/20 text-red-400 border border-red-500/30">
+                      Sin confirmar
+                    </span>
+                  )}
+                </div>
                 <p className="text-xs text-gray-500">
                   {new Date(user.createdAt).toLocaleDateString()}
                 </p>
@@ -247,7 +276,16 @@ export function UserList({ users }: { users: User[] }) {
                 </p>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              {!user.emailConfirmed && (
+                <button
+                  onClick={() => handleConfirmEmail(user.id)}
+                  disabled={confirmingEmail === user.id}
+                  className="flex-1 py-2 text-sm text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 rounded-lg hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+                >
+                  {confirmingEmail === user.id ? 'Confirmando...' : 'Confirmar Email'}
+                </button>
+              )}
               <button
                 onClick={() => handleViewCollection(user)}
                 className="flex-1 py-2 text-sm text-blue-400 bg-blue-500/10 border border-blue-500/30 rounded-lg hover:bg-blue-500/20 transition-colors"
@@ -284,6 +322,9 @@ export function UserList({ users }: { users: User[] }) {
                   Email
                 </th>
                 <th className="px-5 py-3 text-left text-xs font-medium text-gray-400 uppercase">
+                  Estado
+                </th>
+                <th className="px-5 py-3 text-left text-xs font-medium text-gray-400 uppercase">
                   Balance
                 </th>
                 <th className="px-5 py-3 text-left text-xs font-medium text-gray-400 uppercase">
@@ -307,6 +348,17 @@ export function UserList({ users }: { users: User[] }) {
                     <div className="text-sm font-medium text-white">{user.email}</div>
                   </td>
                   <td className="px-5 py-4">
+                    {user.emailConfirmed ? (
+                      <span className="text-xs px-2 py-1 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                        Confirmado
+                      </span>
+                    ) : (
+                      <span className="text-xs px-2 py-1 rounded bg-red-500/20 text-red-400 border border-red-500/30">
+                        Sin confirmar
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-5 py-4">
                     <span className="text-sm font-bold text-emerald-400">
                       ${user.wallet?.balance ? user.wallet.balance.toFixed(2) : '0.00'}
                     </span>
@@ -326,6 +378,15 @@ export function UserList({ users }: { users: User[] }) {
                   </td>
                   <td className="px-5 py-4 text-right">
                     <div className="flex gap-2 justify-end">
+                      {!user.emailConfirmed && (
+                        <button
+                          onClick={() => handleConfirmEmail(user.id)}
+                          disabled={confirmingEmail === user.id}
+                          className="text-emerald-400 hover:text-emerald-300 text-sm font-medium disabled:opacity-50"
+                        >
+                          {confirmingEmail === user.id ? 'Confirmando...' : 'Confirmar'}
+                        </button>
+                      )}
                       <button
                         onClick={() => handleViewCollection(user)}
                         className="text-blue-400 hover:text-blue-300 text-sm font-medium"
