@@ -13,7 +13,7 @@
  * - SUPABASE_SERVICE_ROLE_KEY: Supabase service role key for storage access
  */
 
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import sharp from 'sharp'
 import { PrismaClient } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
@@ -101,7 +101,7 @@ function generateThumbnailPath(originalPath: string): string {
   return `${dir}/thumbnail-${nameWithoutExt}.jpg`
 }
 
-async function downloadImage(supabase: ReturnType<typeof createClient>, path: string): Promise<Buffer | null> {
+async function downloadImage(supabase: SupabaseClient, path: string): Promise<Buffer | null> {
   const { data, error } = await supabase.storage
     .from(BUCKET_NAME)
     .download(path)
@@ -114,7 +114,7 @@ async function downloadImage(supabase: ReturnType<typeof createClient>, path: st
 }
 
 async function uploadThumbnail(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   path: string,
   buffer: Buffer
 ): Promise<string | null> {
@@ -144,7 +144,7 @@ async function uploadThumbnail(
 
 async function migratePhoto(
   prisma: PrismaClient,
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   photo: { id: string; url: string; thumbnailUrl: string | null; collectionId: string },
   stats: MigrationStats
 ): Promise<void> {
