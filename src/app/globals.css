@@ -150,17 +150,14 @@ body {
 /* 3D Page Flip Animations */
 .page-flip-out {
   animation: page-flip-out 600ms ease-in-out forwards;
-  transform-origin: left center;
 }
 
 .page-flip-in {
   animation: page-flip-in 600ms ease-in-out forwards;
-  transform-origin: right center;
 }
 
 .page-flip-in-reverse {
   animation: page-flip-in-reverse 600ms ease-in-out forwards;
-  transform-origin: right center;
 }
 
 @keyframes page-flip-out {
