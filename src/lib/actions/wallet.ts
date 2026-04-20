@@ -25,7 +25,7 @@ export async function getWallet() {
   // Ensure wallet exists
   const wallet = await prisma.wallet.upsert({
     where: { userId: user.id },
-    create: { userId: user.id, balance: 0, adminBalance: 0 },
+    create: { userId: user.id, balance: 0, adminBalance: 0, bonusClaimed: false },
     update: {},
   })
 
@@ -335,4 +335,50 @@ export async function adminBulkUpdateBalance(
 
   revalidatePath('/admin/users')
   return { success, failed: errors.length, errors }
+}
+
+export async function claimWelcomeBonus(): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { success: false, error: 'No autenticado' }
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const wallet = await tx.wallet.findUnique({ where: { userId: user.id } })
+
+      if (!wallet || wallet.bonusClaimed) {
+        throw new Error('Bono no disponible')
+      }
+
+      await tx.transaction.create({
+        data: {
+          userId: user.id,
+          type: 'DEPOSIT',
+          amount: 2,
+          status: 'COMPLETED',
+          source: 'ADMIN',
+        },
+      })
+
+      await tx.wallet.update({
+        where: { userId: user.id },
+        data: {
+          balance: { increment: 2 },
+          adminBalance: { increment: 2 },
+          bonusClaimed: true,
+        },
+      })
+    })
+
+    revalidatePath('/dashboard')
+    revalidatePath('/wallet')
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Error al reclamar' }
+  }
 }

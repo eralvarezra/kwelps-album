@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
     // 7. Create wallet if not exists
     const wallet = await prisma.wallet.upsert({
       where: { userId: id },
-      create: { userId: id, balance: 0, adminBalance: 0 },
+      create: { userId: id, balance: 0, adminBalance: 0, bonusClaimed: false },
       update: {},
     })
 
