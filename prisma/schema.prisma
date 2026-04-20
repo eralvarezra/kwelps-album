@@ -23,7 +23,8 @@ model Wallet {
   id           String   @id @default(uuid())
   userId       String   @unique
   balance      Decimal  @default(0) @db.Decimal(10, 2)
-  adminBalance  Decimal  @default(0) @db.Decimal(10, 2)  // Balance given by admin (can be deducted)
+  adminBalance  Decimal  @default(0) @db.Decimal(10, 2)
+  bonusClaimed  Boolean  @default(true)
   createdAt    DateTime @default(now())
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
