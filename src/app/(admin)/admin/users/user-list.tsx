@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import { adminAddBalance, adminDeductBalance, adminGiveCards, adminGetAllPhotos, adminBulkUpdateBalance } from '@/lib/actions/wallet'
 import { confirmUserEmail } from '@/lib/actions/admin-users'
+import { FormattedDate } from '@/components/ui/formatted-date'
 
 type User = {
   id: string
@@ -352,7 +353,7 @@ export function UserList({ users }: { users: User[] }) {
                   )}
                 </div>
                 <p className="text-xs text-gray-500">
-                  {new Date(user.createdAt).toLocaleDateString()}
+                  <FormattedDate date={user.createdAt} />
                 </p>
               </div>
               <span className="text-xs text-gray-400 ml-2">
@@ -489,7 +490,7 @@ export function UserList({ users }: { users: User[] }) {
                   </td>
                   <td className="px-5 py-4">
                     <span className="text-sm text-gray-500">
-                      {new Date(user.createdAt).toLocaleDateString()}
+                      <FormattedDate date={user.createdAt} />
                     </span>
                   </td>
                   <td className="px-5 py-4 text-right">
