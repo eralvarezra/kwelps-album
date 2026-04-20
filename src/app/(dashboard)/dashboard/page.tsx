@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
+import { WelcomeBonusModal } from '@/components/ui/welcome-bonus-modal'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -24,7 +25,7 @@ export default async function DashboardPage() {
   // Ensure wallet exists
   await prisma.wallet.upsert({
     where: { userId: user.id },
-    create: { userId: user.id, balance: 0 },
+    create: { userId: user.id, balance: 0, adminBalance: 0, bonusClaimed: false },
     update: {},
   })
 
@@ -72,7 +73,9 @@ export default async function DashboardPage() {
     })
 
   return (
-    <div>
+    <>
+      <WelcomeBonusModal show={wallet?.bonusClaimed === false} />
+      <div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Link href="/wallet" className="block">
           <div className="glass p-6 rounded-xl hover:bg-white/10 transition-colors border border-white/10">
