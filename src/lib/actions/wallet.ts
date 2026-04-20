@@ -302,3 +302,37 @@ export async function adminGetAllPhotos() {
 
   return allPhotos
 }
+
+export async function adminBulkUpdateBalance(
+  userIds: string[],
+  amount: number,
+  operation: 'add' | 'deduct'
+): Promise<{ success: number; failed: number; errors: string[] }> {
+  await requireAdmin()
+
+  if (!userIds.length) {
+    return { success: 0, failed: 0, errors: ['No users selected'] }
+  }
+  if (amount <= 0) {
+    return { success: 0, failed: 0, errors: ['Amount must be positive'] }
+  }
+
+  let success = 0
+  const errors: string[] = []
+
+  for (const userId of userIds) {
+    try {
+      if (operation === 'add') {
+        await adminAddBalance(userId, amount)
+      } else {
+        await adminDeductBalance(userId, amount)
+      }
+      success++
+    } catch (err) {
+      errors.push(userId + ': ' + (err instanceof Error ? err.message : 'Unknown error'))
+    }
+  }
+
+  revalidatePath('/admin/users')
+  return { success, failed: errors.length, errors }
+}
