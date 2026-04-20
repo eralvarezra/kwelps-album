@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { adminAddBalance, adminDeductBalance, adminGiveCards, adminGetAllPhotos } from '@/lib/actions/wallet'
+import { adminAddBalance, adminDeductBalance, adminGiveCards, adminGetAllPhotos, adminBulkUpdateBalance } from '@/lib/actions/wallet'
 import { confirmUserEmail } from '@/lib/actions/admin-users'
 
 type User = {
@@ -80,6 +80,8 @@ const rarityConfig = {
   LEGENDARY: { bg: 'bg-yellow-500/20', border: 'border-yellow-500/30', text: 'text-yellow-400', label: 'Legendario' },
 }
 
+const ITEMS_PER_PAGE = 10
+
 export function UserList({ users }: { users: User[] }) {
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [viewingCollection, setViewingCollection] = useState<User | null>(null)
@@ -93,6 +95,10 @@ export function UserList({ users }: { users: User[] }) {
   const [error, setError] = useState('')
   const [operation, setOperation] = useState<'add' | 'deduct'>('add')
 
+  // Pagination and filter state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [emailFilter, setEmailFilter] = useState('')
+
   // Give cards state
   const [givingCards, setGivingCards] = useState<User | null>(null)
   const [allPhotos, setAllPhotos] = useState<AdminPhoto[]>([])
@@ -104,6 +110,69 @@ export function UserList({ users }: { users: User[] }) {
 
   // Confirm email state
   const [confirmingEmail, setConfirmingEmail] = useState<string | null>(null)
+
+  // Bulk selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkAmount, setBulkAmount] = useState('')
+  const [bulkLoading, setBulkLoading] = useState(false)
+  const [bulkResult, setBulkResult] = useState<{ success: number; failed: number; errors: string[] } | null>(null)
+
+  // Filter users by email
+  const filteredUsers = useMemo(() => {
+    if (!emailFilter.trim()) return users
+    return users.filter(user =>
+      user.email.toLowerCase().includes(emailFilter.toLowerCase().trim())
+    )
+  }, [users, emailFilter])
+
+  // Pagination
+  const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE)
+  const paginatedUsers = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE
+    return filteredUsers.slice(start, start + ITEMS_PER_PAGE)
+  }, [filteredUsers, currentPage])
+
+  // Reset to page 1 when filter changes
+  const handleFilterChange = (value: string) => {
+    setEmailFilter(value)
+    setCurrentPage(1)
+  }
+
+  function toggleSelect(userId: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(userId)) next.delete(userId)
+      else next.add(userId)
+      return next
+    })
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === filteredUsers.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(filteredUsers.map(u => u.id)))
+    }
+  }
+
+  async function handleBulkBalance(operation: 'add' | 'deduct') {
+    const amt = parseFloat(bulkAmount)
+    if (!amt || amt <= 0) return
+    setBulkLoading(true)
+    setBulkResult(null)
+    try {
+      const result = await adminBulkUpdateBalance(Array.from(selectedIds), amt, operation)
+      setBulkResult(result)
+      if (result.failed === 0) {
+        setSelectedIds(new Set())
+        setBulkAmount('')
+      }
+    } catch {
+      setBulkResult({ success: 0, failed: selectedIds.size, errors: ['Error inesperado'] })
+    } finally {
+      setBulkLoading(false)
+    }
+  }
 
   async function handleOpenGiveCards(user: User) {
     setGivingCards(user)
@@ -240,10 +309,38 @@ export function UserList({ users }: { users: User[] }) {
 
   return (
     <>
+      {/* Filter and Stats Bar */}
+      <div className="mb-4 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+        <div className="flex-1 w-full sm:max-w-md">
+          <input
+            type="text"
+            placeholder="Buscar por email..."
+            value={emailFilter}
+            onChange={(e) => handleFilterChange(e.target.value)}
+            className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+          />
+        </div>
+        <div className="text-sm text-gray-400">
+          {filteredUsers.length} usuario{filteredUsers.length !== 1 ? 's' : ''}
+          {emailFilter && ' (filtrado)'}
+        </div>
+      </div>
+
       {/* Mobile Card View */}
       <div className="lg:hidden space-y-3">
-        {users.map((user) => (
-          <div key={user.id} className="glass rounded-xl p-4">
+        {paginatedUsers.map((user) => (
+          <div
+            key={user.id}
+            className={`glass rounded-xl p-4 ${selectedIds.has(user.id) ? 'ring-1 ring-purple-500/50' : ''}`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <input
+                type="checkbox"
+                checked={selectedIds.has(user.id)}
+                onChange={() => toggleSelect(user.id)}
+                className="w-4 h-4 rounded border-white/20 bg-white/5 text-purple-500 cursor-pointer"
+              />
+            </div>
             <div className="flex justify-between items-start mb-3">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
@@ -318,6 +415,14 @@ export function UserList({ users }: { users: User[] }) {
           <table className="min-w-full">
             <thead className="bg-white/5">
               <tr>
+                <th className="px-4 py-3 w-10">
+                  <input
+                    type="checkbox"
+                    checked={filteredUsers.length > 0 && selectedIds.size === filteredUsers.length}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 rounded border-white/20 bg-white/5 text-purple-500 cursor-pointer"
+                  />
+                </th>
                 <th className="px-5 py-3 text-left text-xs font-medium text-gray-400 uppercase">
                   Email
                 </th>
@@ -342,8 +447,19 @@ export function UserList({ users }: { users: User[] }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {users.map((user) => (
-                <tr key={user.id} className="hover:bg-white/5">
+              {paginatedUsers.map((user) => (
+                <tr
+                  key={user.id}
+                  className={`hover:bg-white/5 ${selectedIds.has(user.id) ? 'bg-purple-500/10' : ''}`}
+                >
+                  <td className="px-4 py-4 w-10">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(user.id)}
+                      onChange={() => toggleSelect(user.id)}
+                      className="w-4 h-4 rounded border-white/20 bg-white/5 text-purple-500 cursor-pointer"
+                    />
+                  </td>
                   <td className="px-5 py-4">
                     <div className="text-sm font-medium text-white">{user.email}</div>
                   </td>
@@ -416,6 +532,98 @@ export function UserList({ users }: { users: User[] }) {
           </table>
         </div>
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="mt-4 flex items-center justify-center gap-2">
+          <button
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="px-3 py-1.5 text-sm bg-white/5 border border-white/10 rounded-lg text-gray-300 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Anterior
+          </button>
+          <div className="flex items-center gap-1">
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              let pageNum: number
+              if (totalPages <= 5) {
+                pageNum = i + 1
+              } else if (currentPage <= 3) {
+                pageNum = i + 1
+              } else if (currentPage >= totalPages - 2) {
+                pageNum = totalPages - 4 + i
+              } else {
+                pageNum = currentPage - 2 + i
+              }
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => setCurrentPage(pageNum)}
+                  className={`w-8 h-8 text-sm rounded-lg transition-colors ${
+                    currentPage === pageNum
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-white/5 text-gray-300 hover:bg-white/10'
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              )
+            })}
+          </div>
+          <button
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+            className="px-3 py-1.5 text-sm bg-white/5 border border-white/10 rounded-lg text-gray-300 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Siguiente
+          </button>
+        </div>
+      )}
+
+      {/* Bulk Action Bar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 p-4 bg-[#0f172a]/95 backdrop-blur border-t border-white/10 flex flex-col sm:flex-row items-center gap-3">
+          <span className="text-sm text-gray-300 font-medium whitespace-nowrap">
+            {selectedIds.size} usuario{selectedIds.size !== 1 ? 's' : ''} seleccionado{selectedIds.size !== 1 ? 's' : ''}
+          </span>
+          <input
+            type="number"
+            value={bulkAmount}
+            onChange={e => { setBulkAmount(e.target.value); setBulkResult(null) }}
+            step="0.01"
+            min="0.01"
+            placeholder="Monto ($)"
+            className="w-36 px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleBulkBalance('add')}
+              disabled={bulkLoading || !bulkAmount}
+              className="px-4 py-2 text-sm font-medium rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50 transition-colors"
+            >
+              {bulkLoading ? 'Procesando...' : 'Dar balance'}
+            </button>
+            <button
+              onClick={() => handleBulkBalance('deduct')}
+              disabled={bulkLoading || !bulkAmount}
+              className="px-4 py-2 text-sm font-medium rounded-xl bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 transition-colors"
+            >
+              {bulkLoading ? 'Procesando...' : 'Quitar balance'}
+            </button>
+            <button
+              onClick={() => { setSelectedIds(new Set()); setBulkAmount(''); setBulkResult(null) }}
+              className="px-3 py-2 text-sm text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-xl transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+          {bulkResult && (
+            <span className={`text-sm ${bulkResult.failed > 0 ? 'text-yellow-400' : 'text-emerald-400'}`}>
+              {bulkResult.success} ok{bulkResult.failed > 0 ? `, ${bulkResult.failed} fallidos` : ''}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Balance Modal */}
       {selectedUser && (
