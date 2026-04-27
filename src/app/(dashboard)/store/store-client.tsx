@@ -3,395 +3,335 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { purchasePack, purchaseSingle, getStoreInfo } from '@/lib/actions/store'
-import type { PullResult, Rarity, StoreInfo, CollectionInfo } from '@/lib/store/types'
+import type { PullResult, Rarity, StoreInfo } from '@/lib/store/types'
 import { PACK_PRICE, SINGLE_PRICE } from '@/lib/store/types'
 import Link from 'next/link'
 import { LegendaryParticles } from '@/components/ui/legendary-particles'
 
 type StoreData = StoreInfo
 
-const rarityColors: Record<Rarity, string> = {
-  COMMON: 'from-gray-400 to-gray-600 border-gray-500',
-  RARE: 'from-blue-400 to-blue-600 border-blue-500',
-  EPIC: 'from-purple-400 to-purple-600 border-purple-500',
-  LEGENDARY: 'from-yellow-400 to-orange-500 border-yellow-500',
+const rarityColor: Record<Rarity, string> = {
+  COMMON:    '#c0b5a8',
+  RARE:      '#8a7a6a',
+  EPIC:      '#e8a4a4',
+  LEGENDARY: '#d4a356',
 }
 
-const rarityLabels: Record<Rarity, string> = {
-  COMMON: 'Común',
-  RARE: 'Raro',
-  EPIC: 'Épico',
+const rarityLabel: Record<Rarity, string> = {
+  COMMON:    'Común',
+  RARE:      'Raro',
+  EPIC:      'Épico',
   LEGENDARY: 'Legendario',
 }
 
-export function StoreClient({ initialData }: { initialData: StoreData }) {
-  const [data, setData] = useState(initialData)
-  const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(
-    initialData.collections[0]?.id || null
-  )
-  const [loading, setLoading] = useState<'pack' | 'single' | null>(null)
-  const [error, setError] = useState('')
-  const [pullResults, setPullResults] = useState<PullResult[] | null>(null)
-  const [showAnimation, setShowAnimation] = useState(false)
-  const [revealedCards, setRevealedCards] = useState<Set<number>>(new Set())
+const rarityPct: Record<Rarity, string> = {
+  COMMON: '55%', RARE: '35%', EPIC: '8.5%', LEGENDARY: '1.5%',
+}
 
-  const searchParams = useSearchParams()
+export function StoreClient({ initialData }: { initialData: StoreData }) {
+  const [data, setData]                         = useState(initialData)
+  const [selectedCollectionId, setSelected]     = useState<string | null>(initialData.collections[0]?.id ?? null)
+  const [loading, setLoading]                   = useState<'pack' | 'single' | null>(null)
+  const [error, setError]                       = useState('')
+  const [pullResults, setPullResults]           = useState<PullResult[] | null>(null)
+  const [showAnimation, setShowAnimation]       = useState(false)
+  const [revealedCards, setRevealedCards]       = useState<Set<number>>(new Set())
+
+  const searchParams   = useSearchParams()
   const collectionParam = searchParams.get('collection')
 
-  // Set collection from URL param on mount
   useEffect(() => {
     if (collectionParam) {
-      const collectionExists = data.collections.find(c => c.id === collectionParam)
-      if (collectionExists) {
-        setSelectedCollectionId(collectionParam)
-      }
+      const exists = data.collections.find(c => c.id === collectionParam)
+      if (exists) setSelected(collectionParam)
     }
   }, [collectionParam, data.collections])
 
-  const selectedCollection = data.collections.find(c => c.id === selectedCollectionId) || data.collections[0]
+  const selectedCollection = data.collections.find(c => c.id === selectedCollectionId) ?? data.collections[0]
 
   async function handlePurchasePack() {
-    setLoading('pack')
-    setError('')
-    setShowAnimation(true)
-    setRevealedCards(new Set())
-
+    setLoading('pack'); setError(''); setShowAnimation(true); setRevealedCards(new Set())
     try {
-      const result = await purchasePack(selectedCollectionId || undefined)
+      const result = await purchasePack(selectedCollectionId ?? undefined)
       setPullResults(result.photos)
-
-      // Refresh data
-      const newData = await getStoreInfo()
-      setData(newData)
+      setData(await getStoreInfo())
     } catch (err) {
       setError((err as Error).message)
       setShowAnimation(false)
-    } finally {
-      setLoading(null)
-    }
+    } finally { setLoading(null) }
   }
 
   async function handlePurchaseSingle() {
-    setLoading('single')
-    setError('')
-    setShowAnimation(true)
-    setRevealedCards(new Set())
-
+    setLoading('single'); setError(''); setShowAnimation(true); setRevealedCards(new Set())
     try {
-      const result = await purchaseSingle(selectedCollectionId || undefined)
+      const result = await purchaseSingle(selectedCollectionId ?? undefined)
       setPullResults([result])
-
-      // Refresh data
-      const newData = await getStoreInfo()
-      setData(newData)
+      setData(await getStoreInfo())
     } catch (err) {
       setError((err as Error).message)
       setShowAnimation(false)
-    } finally {
-      setLoading(null)
-    }
+    } finally { setLoading(null) }
   }
 
-  function revealCard(index: number) {
-    setRevealedCards(prev => new Set(prev).add(index))
-  }
-
-  function revealAllCards() {
-    if (pullResults) {
-      const allIndices = new Set(pullResults.map((_, i) => i))
-      setRevealedCards(allIndices)
-    }
-  }
-
-  function closeResults() {
-    setPullResults(null)
-    setShowAnimation(false)
-    setRevealedCards(new Set())
-  }
+  function revealCard(index: number) { setRevealedCards(prev => new Set(prev).add(index)) }
+  function revealAllCards() { if (pullResults) setRevealedCards(new Set(pullResults.map((_, i) => i))) }
+  function closeResults() { setPullResults(null); setShowAnimation(false); setRevealedCards(new Set()) }
 
   if (data.collections.length === 0) {
     return (
-      <div className="text-center py-12">
-        <h1 className="text-3xl font-bold mb-4 text-white">Tienda</h1>
-        <p className="text-gray-400">No hay colecciones activas en este momento.</p>
+      <div style={{ padding: '54px 16px 16px', color: 'var(--ink)', textAlign: 'center' }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 36, fontStyle: 'italic', marginBottom: 12 }}>Tienda</div>
+        <div style={{ fontSize: 12, color: 'rgba(26,20,24,0.55)' }}>No hay colecciones activas en este momento.</div>
       </div>
     )
   }
 
+  const pity = data.pity
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
-        <h1 className="text-3xl font-bold text-white">Tienda</h1>
-        <div className="glass rounded-xl p-4 sm:p-0 sm:bg-transparent sm:backdrop-filter-none border border-white/10 sm:border-0">
-          <div className="flex items-center justify-between sm:justify-end gap-4">
-            <div className="sm:text-right">
-              <p className="text-xs sm:text-sm text-gray-400">Tu Balance</p>
-              <p className="text-xl sm:text-2xl font-bold text-yellow-400">${data.balance.toFixed(2)}</p>
-            </div>
-            <Link
-              href="/wallet"
-              className="px-3 py-1.5 sm:px-4 sm:py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium text-sm whitespace-nowrap"
-            >
-              Recargar
-            </Link>
-          </div>
-        </div>
+    <div style={{ color: 'var(--ink)', paddingTop: '54px' }}>
+
+      {/* Top bar */}
+      <div style={{ display: 'flex', alignItems: 'center', padding: '10px 16px 8px' }}>
+        <Link href="/dashboard" style={{ textDecoration: 'none', fontSize: 16, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink)' }}>←</Link>
+        <div style={{ flex: 1, textAlign: 'center', fontSize: 8, fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase' }}>La Tienda</div>
+        <div style={{ width: 28 }} />
       </div>
 
-      {/* Collection Selector */}
-      {data.collections.length > 1 && (
-        <div className="glass rounded-xl p-4 border border-white/10">
-          <p className="text-sm text-gray-400 mb-3">Selecciona una colección:</p>
-          <div className="flex flex-wrap gap-2">
-            {data.collections.map((collection) => (
-              <button
-                key={collection.id}
-                onClick={() => setSelectedCollectionId(collection.id)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  selectedCollectionId === collection.id
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-white/10 text-gray-300 hover:bg-white/20 border border-white/10'
-                }`}
-              >
-                {collection.name}
-              </button>
-            ))}
+      <div style={{ padding: '8px 16px 30px' }}>
+
+        {/* Masthead + balance pill */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 }}>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 36, fontStyle: 'italic', fontWeight: 400, letterSpacing: '-0.03em', lineHeight: 0.95 }}>
+            Tienda
           </div>
+          <Link href="/wallet" style={{ textDecoration: 'none' }}>
+            <div style={{ background: 'var(--ink)', color: 'var(--paper)', padding: '8px 12px', borderRadius: 2, textAlign: 'right' }}>
+              <div style={{ fontSize: 7, letterSpacing: '0.25em', textTransform: 'uppercase', color: 'var(--rose)', fontWeight: 700 }}>Tu Balance</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontStyle: 'italic', fontWeight: 500, marginTop: 2 }}>
+                ${data.balance.toFixed(2)}
+              </div>
+            </div>
+          </Link>
         </div>
-      )}
 
-      {error && (
-        <div className="bg-red-500/20 text-red-400 p-4 rounded-lg border border-red-500/30">{error}</div>
-      )}
+        {/* Collection selector */}
+        {data.collections.length > 1 && (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(26,20,24,0.6)', marginBottom: 8 }}>
+              Selecciona una colección
+            </div>
+            <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2 }}>
+              {data.collections.map(c => (
+                <button
+                  key={c.id}
+                  onClick={() => setSelected(c.id)}
+                  style={{
+                    flexShrink: 0, padding: '8px 12px',
+                    background: selectedCollectionId === c.id ? 'var(--ink)' : 'transparent',
+                    color: selectedCollectionId === c.id ? 'var(--paper)' : 'var(--ink)',
+                    border: selectedCollectionId === c.id ? 'none' : '0.5px solid rgba(26,20,24,0.2)',
+                    fontSize: 10, fontWeight: 600, letterSpacing: '0.05em',
+                    borderRadius: 2, cursor: 'pointer', transition: 'all 0.15s',
+                    fontFamily: 'var(--font-body)',
+                  }}
+                >
+                  {c.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
-      {/* Pity Counter */}
-      {data.pity && (
-        <div className="glass rounded-xl p-6 border border-purple-500/20">
-          <div className="flex justify-between items-center mb-2">
-            <h2 className="font-bold text-white">Contador de Pity</h2>
-            <span className={`text-sm font-medium ${data.pity.isGuaranteed ? 'text-yellow-400' : 'text-purple-400'}`}>
-              {data.pity.isGuaranteed ? '¡Legendario Garantizado!' : `${data.pity.remaining} pulls restantes`}
-            </span>
+        {error && (
+          <div style={{ padding: '8px 10px', background: 'rgba(138,47,59,0.08)', border: '0.5px solid rgba(138,47,59,0.3)', borderRadius: 2, fontSize: 10, color: 'var(--wine)', marginBottom: 14, lineHeight: 1.4 }}>
+            {error}
           </div>
-          <div className="w-full bg-white/10 rounded-full h-3">
-            <div
-              className={`h-3 rounded-full transition-all ${
-                data.pity.isGuaranteed ? 'bg-yellow-500' : 'bg-purple-500'
-              }`}
-              style={{ width: `${Math.min((data.pity.current / 40) * 100, 100)}%` }}
-            />
-          </div>
-          <p className="text-xs text-gray-400 mt-1">
-            {data.pity.current}/40 pulls sin legendario
-          </p>
-          <p className="text-xs text-gray-500 mt-2">
-            Cada foto que abras suma al contador. A los 20 pulls sin legendario, el siguiente está garantizado.
-          </p>
-        </div>
-      )}
+        )}
 
-      {/* Purchase Options */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Pack */}
-        <div className="glass rounded-xl overflow-hidden border border-white/10">
-          <div className="bg-gradient-to-r from-purple-600 to-purple-700 p-6 text-white">
-            <h2 className="text-2xl font-bold">Pack de 4 Fotos</h2>
-            <p className="text-3xl font-bold mt-2">${PACK_PRICE.toFixed(2)}</p>
+        {/* Pity counter */}
+        {pity && (
+          <div style={{ padding: 14, background: 'var(--paper-card)', border: '0.5px solid rgba(26,20,24,0.15)', borderRadius: 2, marginBottom: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+              <div>
+                <div style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'var(--wine)' }}>
+                  Contador de Pity
+                </div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontStyle: 'italic', marginTop: 1 }}>
+                  {pity.isGuaranteed ? '¡Legendario garantizado!' : `${pity.remaining} pulls restantes`}
+                </div>
+              </div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'rgba(26,20,24,0.6)' }}>
+                {pity.current}/40
+              </div>
+            </div>
+            <div style={{ height: 3, background: 'rgba(26,20,24,0.08)', position: 'relative', overflow: 'hidden', borderRadius: 1 }}>
+              <div style={{
+                position: 'absolute', left: 0, top: 0, bottom: 0,
+                width: `${Math.min((pity.current / 40) * 100, 100)}%`,
+                background: pity.isGuaranteed ? 'var(--rarity-legendary)' : 'linear-gradient(90deg, var(--wine) 0%, var(--rose) 100%)',
+              }} />
+            </div>
+            <div style={{ fontSize: 9, color: 'rgba(26,20,24,0.55)', marginTop: 8, lineHeight: 1.5 }}>
+              Cada foto que abras suma al contador. A los 40 pulls sin legendario, el siguiente está garantizado.
+            </div>
           </div>
-          <div className="p-6">
-            <ul className="space-y-2 text-sm text-gray-300 mb-4">
-              <li>✓ 4 fotos aleatorias</li>
-              <li>✓ Garantizado 1 Raro o superior</li>
-              <li>✓ Pity counter: +4</li>
-            </ul>
+        )}
+
+        {/* Pack cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+
+          {/* Pack de 4 — noir */}
+          <div style={{ background: 'var(--ink)', color: 'var(--paper)', padding: '16px 14px', borderRadius: 2, display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div>
+              <div style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'var(--rose)' }}>Pack de 4</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontStyle: 'italic', fontWeight: 500, marginTop: 2, lineHeight: 0.95 }}>
+                ${PACK_PRICE.toFixed(2)}
+              </div>
+            </div>
+            <div style={{ fontSize: 10, display: 'flex', flexDirection: 'column', gap: 4, opacity: 0.85, flex: 1 }}>
+              <div>· 4 fotos aleatorias</div>
+              <div>· Garantizado 1 raro+</div>
+              <div>· Pity counter: +4</div>
+            </div>
             <button
               onClick={handlePurchasePack}
               disabled={loading !== null || data.balance < PACK_PRICE}
-              className="w-full bg-gradient-to-r from-purple-600 to-purple-700 text-white py-3 rounded-lg font-bold hover:from-purple-700 hover:to-purple-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              style={{
+                background: loading !== null || data.balance < PACK_PRICE ? 'rgba(232,164,164,0.4)' : 'var(--rose)',
+                color: 'var(--ink)', padding: 10, textAlign: 'center',
+                fontSize: 9, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase',
+                cursor: loading !== null || data.balance < PACK_PRICE ? 'not-allowed' : 'pointer',
+                borderRadius: 2, border: 'none', fontFamily: 'var(--font-body)',
+                transition: 'opacity 0.15s',
+              }}
             >
-              {loading === 'pack' ? 'Comprando...' : data.balance < PACK_PRICE ? 'Saldo insuficiente' : 'Comprar Pack'}
+              {loading === 'pack' ? 'Comprando...' : data.balance < PACK_PRICE ? 'Saldo insuf.' : 'Comprar'}
             </button>
           </div>
-        </div>
 
-        {/* Single */}
-        <div className="glass rounded-xl overflow-hidden border border-white/10">
-          <div className="bg-gradient-to-r from-emerald-600 to-teal-600 p-6 text-white">
-            <h2 className="text-2xl font-bold">Foto Individual</h2>
-            <p className="text-3xl font-bold mt-2">${SINGLE_PRICE.toFixed(2)}</p>
-          </div>
-          <div className="p-6">
-            <ul className="space-y-2 text-sm text-gray-300 mb-4">
-              <li>✓ 1 foto aleatoria</li>
-              <li>✓ Probabilidades estándar</li>
-              <li>✓ Pity counter: +1</li>
-            </ul>
+          {/* Foto única — blush */}
+          <div style={{ background: 'var(--blush)', color: '#2a1519', padding: '16px 14px', borderRadius: 2, display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div>
+              <div style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'var(--wine)' }}>Foto Única</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontStyle: 'italic', fontWeight: 500, marginTop: 2, lineHeight: 0.95 }}>
+                ${SINGLE_PRICE.toFixed(2)}
+              </div>
+            </div>
+            <div style={{ fontSize: 10, display: 'flex', flexDirection: 'column', gap: 4, opacity: 0.8, flex: 1 }}>
+              <div>· 1 foto aleatoria</div>
+              <div>· Probabilidades estándar</div>
+              <div>· Pity counter: +1</div>
+            </div>
             <button
               onClick={handlePurchaseSingle}
               disabled={loading !== null || data.balance < SINGLE_PRICE}
-              className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-3 rounded-lg font-bold hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              style={{
+                background: loading !== null || data.balance < SINGLE_PRICE ? 'rgba(138,47,59,0.3)' : 'var(--wine)',
+                color: loading !== null || data.balance < SINGLE_PRICE ? 'rgba(42,21,25,0.5)' : 'var(--paper)',
+                padding: 10, textAlign: 'center',
+                fontSize: 9, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase',
+                cursor: loading !== null || data.balance < SINGLE_PRICE ? 'not-allowed' : 'pointer',
+                borderRadius: 2, border: 'none', fontFamily: 'var(--font-body)',
+                transition: 'opacity 0.15s',
+              }}
             >
-              {loading === 'single' ? 'Comprando...' : data.balance < SINGLE_PRICE ? 'Saldo insuficiente' : 'Comprar Foto'}
+              {loading === 'single' ? 'Comprando...' : data.balance < SINGLE_PRICE ? 'Saldo insuf.' : 'Comprar'}
             </button>
           </div>
         </div>
-      </div>
 
-      {/* Collection Info */}
-      <div className="glass rounded-xl p-6 border border-white/10">
-        <h2 className="text-xl font-bold mb-4 text-white">Probabilidades</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {(['COMMON', 'RARE', 'EPIC', 'LEGENDARY'] as Rarity[]).map((rarity) => (
-            <div key={rarity} className="text-center p-4 rounded-lg bg-white/5 border border-white/10">
-              <p className="font-medium text-white">{rarityLabels[rarity]}</p>
-              <p className="text-sm text-gray-400">
-                {rarity === 'COMMON' ? '55%' : rarity === 'RARE' ? '35%' : rarity === 'EPIC' ? '8.5%' : '1.5%'}
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                {selectedCollection?.rarityCount[rarity] || 0} fotos
-              </p>
-            </div>
-          ))}
+        {/* Probabilidades */}
+        <div style={{ padding: 14, background: 'var(--paper-card)', border: '0.5px solid rgba(26,20,24,0.15)', borderRadius: 2 }}>
+          <div style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(26,20,24,0.6)', marginBottom: 10 }}>
+            Probabilidades
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
+            {(['COMMON', 'RARE', 'EPIC', 'LEGENDARY'] as Rarity[]).map(r => (
+              <div key={r} style={{ padding: '10px 6px', textAlign: 'center', border: '0.5px solid rgba(26,20,24,0.12)', borderRadius: 2, borderTop: `2px solid ${rarityColor[r]}` }}>
+                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.02em' }}>{rarityLabel[r]}</div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontStyle: 'italic', fontWeight: 500, marginTop: 2, lineHeight: 1, color: rarityColor[r] }}>
+                  {rarityPct[r]}
+                </div>
+                <div style={{ fontSize: 8, color: 'rgba(26,20,24,0.5)', fontFamily: 'var(--font-mono)', marginTop: 3 }}>
+                  {selectedCollection?.rarityCount[r] ?? 0} fotos
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Footer link */}
+        <div style={{ textAlign: 'center', marginTop: 18 }}>
+          <Link href="/album" style={{ textDecoration: 'none', fontSize: 9, fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'var(--wine)', borderBottom: '1px solid var(--wine)', paddingBottom: 2 }}>
+            Ir a Mi Álbum
+          </Link>
         </div>
       </div>
 
-      {/* Results Modal */}
+      {/* Results modal */}
       {pullResults && (
-        <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-50 p-4 overflow-hidden">
-          {/* Background particles for legendary */}
-          {pullResults.some(p => p.rarity === 'LEGENDARY') && revealedCards.size > 0 && (
-            <LegendaryParticles />
-          )}
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(12,9,11,0.97)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16, overflowY: 'auto' }}>
+          {pullResults.some(p => p.rarity === 'LEGENDARY') && revealedCards.size > 0 && <LegendaryParticles />}
 
-          <div className="bg-gradient-to-b from-gray-900 to-gray-800 rounded-xl max-w-3xl w-full max-h-[90vh] overflow-auto border border-white/10">
-            <div className="p-6">
-              <h2 className="text-2xl sm:text-3xl font-bold text-center mb-2 text-white">
-                ¡Toca para revelar!
-              </h2>
-              <p className="text-center text-gray-400 mb-6">
-                {revealedCards.size === pullResults.length
-                  ? `${pullResults.filter(p => p.isNew).length > 0 ? `${pullResults.filter(p => p.isNew).length} foto${pullResults.filter(p => p.isNew).length > 1 ? 's' : ''} nueva${pullResults.filter(p => p.isNew).length > 1 ? 's' : ''}` : 'Todas duplicadas'}`
-                  : 'Haz clic en cada carta para revelarla'}
-              </p>
+          <div style={{ background: 'var(--ink)', borderRadius: 2, maxWidth: 480, width: '100%', border: '0.5px solid rgba(250,247,242,0.1)', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ padding: '20px 18px' }}>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mb-6">
+              {/* Header */}
+              <div style={{ textAlign: 'center', marginBottom: 20 }}>
+                <div style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'var(--rose)', marginBottom: 6 }}>
+                  Apertura
+                </div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontStyle: 'italic', color: 'var(--paper)', lineHeight: 1 }}>
+                  {revealedCards.size === pullResults.length
+                    ? pullResults.filter(p => p.isNew).length > 0
+                      ? `${pullResults.filter(p => p.isNew).length} foto${pullResults.filter(p => p.isNew).length > 1 ? 's' : ''} nueva${pullResults.filter(p => p.isNew).length > 1 ? 's' : ''}`
+                      : 'Todas duplicadas'
+                    : 'Toca para revelar'}
+                </div>
+              </div>
+
+              {/* Cards grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: pullResults.length === 1 ? '1fr' : 'repeat(2, 1fr)', gap: 10, marginBottom: 20, maxWidth: pullResults.length === 1 ? 200 : '100%', margin: pullResults.length === 1 ? '0 auto 20px' : '0 0 20px' }}>
                 {pullResults.map((photo, index) => {
                   const isRevealed = revealedCards.has(index)
-                  const isSpecial = photo.rarity === 'EPIC' || photo.rarity === 'LEGENDARY'
 
                   return (
                     <div
                       key={`${photo.id}-${index}`}
                       onClick={() => !isRevealed && revealCard(index)}
-                      className={`relative aspect-[3/4] rounded-xl overflow-hidden cursor-pointer transition-all duration-500 ${
-                        isRevealed ? 'transform-gpu' : ''
-                      }`}
-                      style={{
-                        perspective: '1000px',
-                      }}
+                      style={{ aspectRatio: '3/4', borderRadius: 2, overflow: 'hidden', cursor: isRevealed ? 'default' : 'pointer', perspective: '1000px' }}
                     >
-                      {/* Card container with flip effect */}
-                      <div
-                        className={`relative w-full h-full transition-transform duration-700 ${
-                          isRevealed ? '' : ''
-                        }`}
-                        style={{
-                          transformStyle: 'preserve-3d',
-                          transform: isRevealed ? 'rotateY(180deg)' : 'rotateY(0deg)',
-                        }}
-                      >
-                        {/* Back of card (hidden) */}
-                        <div
-                          className="absolute inset-0 rounded-xl overflow-hidden"
-                          style={{ backfaceVisibility: 'hidden' }}
-                        >
-                          <div
-                            className={`w-full h-full flex items-center justify-center ${
-                              isSpecial
-                                ? photo.rarity === 'LEGENDARY'
-                                  ? 'bg-gradient-to-br from-yellow-600 via-amber-500 to-yellow-600'
-                                  : 'bg-gradient-to-br from-purple-600 via-purple-500 to-purple-600'
-                                : 'bg-gradient-to-br from-gray-700 via-gray-600 to-gray-700'
-                            }`}
-                          >
-                            {/* Special glow effect for epic/legendary */}
-                            {isSpecial && (
-                              <div className={`absolute inset-0 ${
-                                photo.rarity === 'LEGENDARY'
-                                  ? 'animate-pulse bg-yellow-400/30'
-                                  : 'animate-pulse bg-purple-400/30'
-                              }`} />
-                            )}
+                      <div style={{ position: 'relative', width: '100%', height: '100%', transformStyle: 'preserve-3d', transition: 'transform 0.7s cubic-bezier(.45,.05,.55,.95)', transform: isRevealed ? 'rotateY(180deg)' : 'rotateY(0deg)' }}>
 
-                            {/* Card back pattern */}
-                            <div className="relative z-10 flex flex-col items-center justify-center">
-                              <div className={`w-16 h-16 rounded-full flex items-center justify-center ${
-                                photo.rarity === 'LEGENDARY'
-                                  ? 'bg-yellow-900/50 border-2 border-yellow-400/50'
-                                  : photo.rarity === 'EPIC'
-                                  ? 'bg-purple-900/50 border-2 border-purple-400/50'
-                                  : 'bg-gray-800/50 border-2 border-gray-500/50'
-                              }`}>
-                                <span className="text-2xl">?</span>
-                              </div>
-                              {isSpecial && (
-                                <div className={`mt-3 text-xs font-bold ${
-                                  photo.rarity === 'LEGENDARY' ? 'text-yellow-200' : 'text-purple-200'
-                                } animate-pulse`}>
-                                  ✨ ESPECIAL ✨
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Shine effect */}
-                            {isSpecial && (
-                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shine pointer-events-none" />
-                            )}
+                        {/* Card back */}
+                        <div style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', background: 'rgba(250,247,242,0.06)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '0.5px solid rgba(250,247,242,0.1)', borderRadius: 2 }}>
+                          <div style={{ fontFamily: 'var(--font-display)', fontSize: 48, fontStyle: 'italic', color: 'rgba(250,247,242,0.15)', lineHeight: 1 }}>K</div>
+                          <div style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(250,247,242,0.3)', marginTop: 8 }}>
+                            Toca para revelar
                           </div>
                         </div>
 
-                        {/* Front of card (revealed) */}
-                        <div
-                          className="absolute inset-0 rounded-xl overflow-hidden"
-                          style={{
-                            backfaceVisibility: 'hidden',
-                            transform: 'rotateY(180deg)',
-                          }}
-                        >
-                          <div className={`w-full h-full relative ${
-                            photo.rarity === 'LEGENDARY'
-                              ? 'card-glow-legendary'
-                              : photo.rarity === 'EPIC'
-                              ? 'card-glow-epic'
-                              : photo.rarity === 'RARE'
-                              ? 'card-glow-rare'
-                              : ''
-                          }`}>
-                            <img
-                              src={photo.url}
-                              alt="Photo"
-                              className="w-full h-full object-cover"
-                            />
-                            {/* Shine effect for legendary */}
-                            {photo.rarity === 'LEGENDARY' && (
-                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shine pointer-events-none" />
-                            )}
-                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
-                              <p className={`text-sm font-bold text-center ${
-                                photo.rarity === 'LEGENDARY' ? 'text-yellow-400' :
-                                photo.rarity === 'EPIC' ? 'text-purple-400' :
-                                photo.rarity === 'RARE' ? 'text-blue-400' : 'text-gray-300'
-                              }`}>
-                                {rarityLabels[photo.rarity]}
-                              </p>
+                        {/* Card front */}
+                        <div style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', borderRadius: 2, overflow: 'hidden' }}>
+                          <img src={photo.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.8) 100%)' }} />
+                          <div style={{ position: 'absolute', bottom: 8, left: 8, right: 8 }}>
+                            <div style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.25em', textTransform: 'uppercase', color: rarityColor[photo.rarity] }}>
+                              {rarityLabel[photo.rarity]}
                             </div>
-                            {photo.isNew && (
-                              <span className="absolute top-3 right-3 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
-                                ¡NUEVO!
-                              </span>
-                            )}
                           </div>
+                          {photo.isNew && (
+                            <div style={{ position: 'absolute', top: 8, right: 8, background: 'var(--ink)', color: 'var(--paper)', fontSize: 7, fontWeight: 700, letterSpacing: '0.2em', padding: '3px 6px', borderRadius: 100 }}>
+                              NUEVA
+                            </div>
+                          )}
+                          {photo.rarity === 'LEGENDARY' && (
+                            <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', boxShadow: `inset 0 0 0 2px ${rarityColor.LEGENDARY}, 0 0 20px rgba(212,163,86,0.4)` }} />
+                          )}
+                          {photo.rarity === 'EPIC' && (
+                            <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', boxShadow: `inset 0 0 0 1px ${rarityColor.EPIC}` }} />
+                          )}
                         </div>
                       </div>
                     </div>
@@ -399,45 +339,35 @@ export function StoreClient({ initialData }: { initialData: StoreData }) {
                 })}
               </div>
 
-              {/* Action buttons */}
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              {/* Actions */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {revealedCards.size < pullResults.length && (
                   <button
                     onClick={revealAllCards}
-                    className="px-6 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg hover:from-purple-700 hover:to-purple-800 transition-colors font-medium"
+                    style={{ padding: '12px', background: 'var(--rose)', color: 'var(--ink)', fontSize: 9, fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase', borderRadius: 2, border: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)' }}
                   >
                     Revelar Todas
                   </button>
                 )}
-                <button
-                  onClick={closeResults}
-                  className="px-6 py-3 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors font-medium border border-white/10"
-                >
-                  Cerrar
-                </button>
                 {revealedCards.size === pullResults.length && (
                   <Link
                     href="/album"
-                    className="px-6 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg hover:from-purple-700 hover:to-purple-800 transition-colors font-medium text-center"
+                    style={{ padding: '12px', background: 'var(--rose)', color: 'var(--ink)', fontSize: 9, fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase', borderRadius: 2, textDecoration: 'none', textAlign: 'center', display: 'block' }}
                   >
                     Ver Álbum
                   </Link>
                 )}
+                <button
+                  onClick={closeResults}
+                  style={{ padding: '12px', background: 'transparent', color: 'rgba(250,247,242,0.5)', fontSize: 9, fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase', borderRadius: 2, border: '0.5px solid rgba(250,247,242,0.15)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}
+                >
+                  Cerrar
+                </button>
               </div>
             </div>
           </div>
         </div>
       )}
-
-      {/* Quick Links */}
-      <div className="flex gap-4 justify-center">
-        <Link
-          href="/album"
-          className="text-purple-400 hover:text-purple-300 transition-colors"
-        >
-          Mi Álbum
-        </Link>
-      </div>
     </div>
   )
 }
