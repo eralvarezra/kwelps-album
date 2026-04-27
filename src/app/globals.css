@@ -153,6 +153,45 @@ body {
   background: rgba(26,20,24,0.25);
 }
 
+/* ─── Desktop layout ─── */
+.dashboard-sidenav {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  html, body {
+    overflow-x: unset;
+  }
+
+  .dashboard-shell {
+    padding-left: 200px;
+  }
+
+  .dashboard-main {
+    max-width: 680px !important;
+    padding-bottom: 48px !important;
+  }
+
+  .dashboard-sidenav {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 200px;
+    height: 100vh;
+    background: var(--paper);
+    border-right: 0.5px solid rgba(26,20,24,0.1);
+    padding: 36px 28px 28px;
+    z-index: 50;
+    overflow-y: auto;
+  }
+
+  .bottom-nav-mobile {
+    display: none !important;
+  }
+}
+
 /* ─── Reduced Motion ─── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
