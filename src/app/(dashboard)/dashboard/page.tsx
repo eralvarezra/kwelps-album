@@ -6,7 +6,7 @@ import { WelcomeBonusModal } from '@/components/ui/welcome-bonus-modal'
 
 const howItWorks = [
   { n: '01', t: 'Recargá',    d: 'Suma saldo a tu wallet con PayPal o Sinpe.' },
-  { n: '02', t: 'Comprá',     d: 'Elegí pack de 4 fotos o foto individual.' },
+  { n: '02', t: 'Comprá',     d: 'Elegí pack de 6 fotos o 2 fotos.' },
   { n: '03', t: 'Coleccioná', d: 'Las fotos llegan a tu álbum por rareza.' },
   { n: '04', t: 'Fusioná',    d: '4 fotos iguales = 1 de mayor rareza.' },
   { n: '05', t: 'Completá',   d: 'Termina la colección y reclamá tu premio.' },

@@ -65,7 +65,7 @@ export function StoreClient({ initialData }: { initialData: StoreData }) {
     setLoading('single'); setError(''); setShowAnimation(true); setRevealedCards(new Set())
     try {
       const result = await purchaseSingle(selectedCollectionId ?? undefined)
-      setPullResults([result])
+      setPullResults(result.photos)
       setData(await getStoreInfo())
     } catch (err) {
       setError((err as Error).message)
@@ -181,18 +181,18 @@ export function StoreClient({ initialData }: { initialData: StoreData }) {
         {/* Pack cards */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
 
-          {/* Pack de 4 — noir */}
+          {/* Pack de 6 — noir */}
           <div style={{ background: 'var(--ink)', color: 'var(--paper)', padding: '16px 14px', borderRadius: 2, display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div>
-              <div style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'var(--rose)' }}>Pack de 4</div>
+              <div style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'var(--rose)' }}>Pack de 6</div>
               <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontStyle: 'italic', fontWeight: 500, marginTop: 2, lineHeight: 0.95 }}>
                 ${PACK_PRICE.toFixed(2)}
               </div>
             </div>
             <div style={{ fontSize: 10, display: 'flex', flexDirection: 'column', gap: 4, opacity: 0.85, flex: 1 }}>
-              <div>· 4 fotos aleatorias</div>
+              <div>· 6 fotos aleatorias</div>
               <div>· Garantizado 1 raro+</div>
-              <div>· Pity counter: +4</div>
+              <div>· Pity counter: +6</div>
             </div>
             {data.balance < PACK_PRICE ? (
               <Link href="/wallet" style={{
@@ -223,15 +223,15 @@ export function StoreClient({ initialData }: { initialData: StoreData }) {
           {/* Foto única — blush */}
           <div style={{ background: 'var(--blush)', color: '#2a1519', padding: '16px 14px', borderRadius: 2, display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div>
-              <div style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'var(--wine)' }}>Foto Única</div>
+              <div style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'var(--wine)' }}>2 Fotos</div>
               <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontStyle: 'italic', fontWeight: 500, marginTop: 2, lineHeight: 0.95 }}>
                 ${SINGLE_PRICE.toFixed(2)}
               </div>
             </div>
             <div style={{ fontSize: 10, display: 'flex', flexDirection: 'column', gap: 4, opacity: 0.8, flex: 1 }}>
-              <div>· 1 foto aleatoria</div>
+              <div>· 2 fotos aleatorias</div>
               <div>· Probabilidades estándar</div>
-              <div>· Pity counter: +1</div>
+              <div>· Pity counter: +2</div>
             </div>
             {data.balance < SINGLE_PRICE ? (
               <Link href="/wallet" style={{

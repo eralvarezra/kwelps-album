@@ -76,7 +76,7 @@ export function selectRandomRarityWithGuarantee(): Rarity {
 }
 
 /**
- * Generates an array of rarities for a pack (4 photos)
+ * Generates an array of rarities for a pack (6 photos)
  * Includes bad luck protection: at least 1 rare or higher
  */
 export function generatePackRarities(isGuaranteedLegendary: boolean): Rarity[] {
@@ -89,13 +89,12 @@ export function generatePackRarities(isGuaranteedLegendary: boolean): Rarity[] {
     rarities.push(selectRandomRarity())
   }
 
-  // Second card - normal roll
-  rarities.push(selectRandomRarity())
+  // Cards 2-5 - normal rolls
+  for (let i = 0; i < 4; i++) {
+    rarities.push(selectRandomRarity())
+  }
 
-  // Third card - normal roll
-  rarities.push(selectRandomRarity())
-
-  // Fourth card - with bad luck protection (guaranteed rare+)
+  // Sixth card - with bad luck protection (guaranteed rare+)
   // But skip if we already have a rare+ card
   const hasRareOrHigher = rarities.some(r => r !== 'COMMON')
   if (hasRareOrHigher) {

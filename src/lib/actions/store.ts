@@ -181,10 +181,10 @@ export async function purchasePack(collectionId?: string): Promise<PackResult> {
         data: { legendaryCounter: 0 },
       })
     } else {
-      // Increment pity counter by 4 (one per photo)
+      // Increment pity counter by 6 (one per photo)
       await tx.pityCounter.update({
         where: { userId: user.id },
-        data: { legendaryCounter: { increment: 4 } },
+        data: { legendaryCounter: { increment: 6 } },
       })
     }
 
@@ -201,7 +201,7 @@ export async function purchasePack(collectionId?: string): Promise<PackResult> {
 /**
  * Purchase a single photo (random from active collection)
  */
-export async function purchaseSingle(collectionId?: string): Promise<PullResult> {
+export async function purchaseSingle(collectionId?: string): Promise<PackResult> {
   const supabase = await createClient()
   const {
     data: { user },
@@ -252,29 +252,34 @@ export async function purchaseSingle(collectionId?: string): Promise<PullResult>
     const existingPhotosCount = await tx.userPhoto.count({ where: { userId: user.id } })
     const isFirstPurchase = existingPhotosCount === 0
 
-    // Determine rarity
-    const isGuaranteedLegendary = pityCounter.legendaryCounter >= 40
-    let rarity: Rarity
-
-    if (isFirstPurchase) {
-      // First purchase: guarantee COMMON or RARE (60/40 split between the two)
-      const rand = crypto.getRandomValues(new Uint32Array(1))[0] / 0x100000000
-      rarity = rand < 0.6 ? 'COMMON' : 'RARE'
-    } else if (isGuaranteedLegendary) {
-      rarity = 'LEGENDARY'
-    } else {
-      // Weighted random selection using canonical RARITY_WEIGHTS (55/35/8.5/1.5)
+    // Helper to roll one rarity
+    function rollRarity(guaranteeLegendary: boolean): Rarity {
+      if (guaranteeLegendary) return 'LEGENDARY'
       const total = Object.values(RARITY_WEIGHTS).reduce((s, w) => s + w, 0)
       let random = (crypto.getRandomValues(new Uint32Array(1))[0] / 0x100000000) * total
-      rarity = 'COMMON'
       for (const r of ['COMMON', 'RARE', 'EPIC', 'LEGENDARY'] as Rarity[]) {
         random -= RARITY_WEIGHTS[r]
-        if (random <= 0) { rarity = r; break }
+        if (random <= 0) return r
+      }
+      return 'COMMON'
+    }
+
+    // Generate 2 rarities
+    const rarities: Rarity[] = []
+    for (let i = 0; i < 2; i++) {
+      if (isFirstPurchase && i === 0) {
+        // First card of first purchase: guarantee COMMON or RARE (60/40)
+        const rand = crypto.getRandomValues(new Uint32Array(1))[0] / 0x100000000
+        rarities.push(rand < 0.6 ? 'COMMON' : 'RARE')
+      } else {
+        const isGuaranteedLegendary = pityCounter.legendaryCounter + i >= 40
+        rarities.push(rollRarity(isGuaranteedLegendary))
       }
     }
 
-    // Select random photo of that rarity
-    const photo = selectRandomPhotoByRarity(collection.photos, rarity)
+    const selectedPhotos = rarities.map((rarity) =>
+      selectRandomPhotoByRarity(collection.photos, rarity)
+    )
 
     // Deduct balance
     await tx.wallet.update({
@@ -292,33 +297,33 @@ export async function purchaseSingle(collectionId?: string): Promise<PullResult>
       },
     })
 
-    // Add to user's collection
-    const existingPhoto = await tx.userPhoto.findUnique({
-      where: {
-        userId_photoId: {
-          userId: user.id,
-          photoId: photo.id,
-        },
-      },
-    })
+    // Add photos to user's collection
+    const pullResults: PullResult[] = []
+    let hadLegendary = false
 
-    if (existingPhoto) {
-      await tx.userPhoto.update({
-        where: { id: existingPhoto.id },
-        data: { quantity: { increment: 1 } },
+    for (const photo of selectedPhotos) {
+      if (photo.rarity === 'LEGENDARY') hadLegendary = true
+
+      const existingPhoto = await tx.userPhoto.findUnique({
+        where: { userId_photoId: { userId: user.id, photoId: photo.id } },
       })
-    } else {
-      await tx.userPhoto.create({
-        data: {
-          userId: user.id,
-          photoId: photo.id,
-          quantity: 1,
-        },
-      })
+
+      if (existingPhoto) {
+        await tx.userPhoto.update({
+          where: { id: existingPhoto.id },
+          data: { quantity: { increment: 1 } },
+        })
+        pullResults.push({ ...photo, isNew: false })
+      } else {
+        await tx.userPhoto.create({
+          data: { userId: user.id, photoId: photo.id, quantity: 1 },
+        })
+        pullResults.push({ ...photo, isNew: true })
+      }
     }
 
     // Update pity counter
-    if (rarity === 'LEGENDARY') {
+    if (hadLegendary) {
       await tx.pityCounter.update({
         where: { userId: user.id },
         data: { legendaryCounter: 0 },
@@ -326,14 +331,11 @@ export async function purchaseSingle(collectionId?: string): Promise<PullResult>
     } else {
       await tx.pityCounter.update({
         where: { userId: user.id },
-        data: { legendaryCounter: { increment: 1 } },
+        data: { legendaryCounter: { increment: 2 } },
       })
     }
 
-    return {
-      ...photo,
-      isNew: !existingPhoto,
-    }
+    return { photos: pullResults, totalCost: SINGLE_PRICE }
   })
 
   revalidatePath('/dashboard')
