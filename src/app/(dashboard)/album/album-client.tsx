@@ -4,10 +4,7 @@ import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { fuseCards, exchangeLegendary, sellLegendary } from '@/lib/actions/album'
 import type { AlbumCollection } from '@/lib/actions/album'
-import { BookSpread } from '@/components/book/BookSpread'
 import { PhotoModal } from '@/components/book/PhotoModal'
-import { BookHeader } from '@/components/book/BookHeader'
-import { useSoundEffect } from '@/components/book/hooks/useSoundEffect'
 
 type AlbumStats = {
   totalPhotos: number
@@ -118,8 +115,6 @@ export function AlbumClient({
   const [sellingLegendary, setSellingLegendary] = useState(false)
   const [sellResult, setSellResult] = useState<{ photoId: string; newBalance: number } | null>(null)
 
-  const { play: playFlipSound, muted, toggleMute } = useSoundEffect('/sounds/page-flip.mp3')
-
   const collection = initialAlbum.find(c => c.id === selectedCollection)
 
   const filteredPhotos = useMemo(() => {
@@ -220,8 +215,6 @@ export function AlbumClient({
     setSelectedPhoto(photo)
   }, [])
 
-  const handleFlip = useCallback(() => { playFlipSound() }, [playFlipSound])
-
   const byRarity = {
     LEGENDARY: collection?.photos.filter(p => p.rarity === 'LEGENDARY' && p.quantity > 0).length || 0,
     EPIC:      collection?.photos.filter(p => p.rarity === 'EPIC'      && p.quantity > 0).length || 0,
@@ -240,21 +233,40 @@ export function AlbumClient({
     )
   }
 
-  return (
-    <div style={{ minHeight: '100vh', background: 'var(--paper)', color: 'var(--ink)', display: 'flex', flexDirection: 'column' }}>
+  const pct = collection && collection.totalPhotos > 0
+    ? Math.round((collection.collectedPhotos / collection.totalPhotos) * 100)
+    : 0
 
-      {/* BookHeader (existing component) */}
-      <BookHeader
-        collectionName={collection?.name || 'Mi Álbum'}
-        collectionPrize={collection?.prize}
-        collected={collection?.collectedPhotos || 0}
-        total={collection?.totalPhotos || 0}
-        byRarity={byRarity}
-        currentPage={1}
-        totalPages={Math.ceil((collection?.photos.length || 0) / 10)}
-        onSoundToggle={toggleMute}
-        isMuted={muted}
-      />
+  return (
+    <div style={{ background: 'var(--paper)', color: 'var(--ink)', paddingTop: 54 }}>
+
+      {/* Collection stats strip */}
+      <div style={{ padding: '10px 16px 12px', borderBottom: '0.5px solid rgba(26,20,24,0.1)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontStyle: 'italic', fontWeight: 500, lineHeight: 1 }}>
+            {collection?.name || 'Mi Álbum'}
+          </div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'rgba(26,20,24,0.55)' }}>
+            {collection?.collectedPhotos ?? 0}/{collection?.totalPhotos ?? 0}
+          </div>
+        </div>
+        <div style={{ height: 2, background: 'rgba(26,20,24,0.08)', position: 'relative', overflow: 'hidden', borderRadius: 1, marginBottom: 8 }}>
+          <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%`, background: 'var(--ink)' }} />
+        </div>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          {(['LEGENDARY', 'EPIC', 'RARE', 'COMMON'] as const).map(r => (
+            <div key={r} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <div style={{ width: 5, height: 5, borderRadius: '50%', background: rarityColor[r] }} />
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'rgba(26,20,24,0.6)' }}>{byRarity[r]}</span>
+            </div>
+          ))}
+          {collection?.prize && (
+            <div style={{ marginLeft: 'auto', fontSize: 8, color: 'var(--wine)', fontWeight: 700, letterSpacing: '0.1em' }}>
+              Premio: {collection.prize}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Tab bar */}
       <div style={{ borderBottom: '0.5px solid rgba(26,20,24,0.12)', display: 'flex' }}>
@@ -325,25 +337,63 @@ export function AlbumClient({
       )}
 
       {/* Content area */}
-      <div style={{ flex: 1, overflow: 'hidden' }}>
+      <div>
 
-        {/* Book tab */}
+        {/* Book tab — scrollable uniform grid */}
         {activeTab === 'book' && collection && (
-          <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-            <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', maxWidth: '100vw' }}>
-              <BookSpread
-                photos={filteredPhotos}
-                photosPerPage={10}
-                onPhotoClick={handlePhotoClick}
-                onFlip={handleFlip}
-              />
+          <div style={{ padding: '10px 16px 100px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              {filteredPhotos.map((photo, index) => {
+                const isOwned = photo.quantity > 0
+                const color   = rarityColor[photo.rarity]
+                const num     = index + 1
+
+                return (
+                  <button
+                    key={photo.id}
+                    onClick={() => isOwned ? handlePhotoClick(photo) : undefined}
+                    style={{
+                      position: 'relative', aspectRatio: '3/4', borderRadius: 2,
+                      overflow: 'hidden', border: 'none', padding: 0,
+                      cursor: isOwned ? 'pointer' : 'default',
+                      background: 'var(--paper-warm)',
+                      borderTop: `2px solid ${isOwned ? color : color + '33'}`,
+                      display: 'block',
+                    }}
+                  >
+                    {isOwned ? (
+                      <>
+                        <img src={photo.thumbnailUrl || photo.url} alt="" loading="lazy"
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, transparent 55%, rgba(0,0,0,0.65) 100%)' }} />
+                        {photo.quantity > 1 && (
+                          <div style={{ position: 'absolute', top: 5, right: 5, background: 'var(--wine)', color: 'var(--paper)', fontSize: 7, fontWeight: 700, padding: '2px 4px', borderRadius: 1 }}>
+                            ×{photo.quantity}
+                          </div>
+                        )}
+                        <div style={{ position: 'absolute', bottom: 5, left: 6, right: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 7, color: 'rgba(250,247,242,0.6)' }}>#{num}</span>
+                          <span style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color }}>
+                            {rarityLabels[photo.rarity].slice(0, 3)}
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 700, color: 'rgba(26,20,24,0.18)' }}>{num}</span>
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: color, opacity: 0.3, display: 'block' }} />
+                      </div>
+                    )}
+                  </button>
+                )
+              })}
             </div>
           </div>
         )}
 
         {/* Fusion tab */}
         {activeTab === 'fusion' && collection && (
-          <div style={{ padding: 16, overflowY: 'auto', height: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ padding: 16, paddingBottom: 100, display: 'flex', flexDirection: 'column', gap: 12 }}>
 
             {/* Info card */}
             <div style={{ padding: 14, background: 'var(--paper-card)', border: '0.5px solid rgba(26,20,24,0.12)', borderRadius: 2 }}>
@@ -458,7 +508,7 @@ export function AlbumClient({
 
         {/* Legendary tab */}
         {activeTab === 'legendary' && collection && (
-          <div style={{ padding: 16, overflowY: 'auto', height: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ padding: 16, paddingBottom: 100, display: 'flex', flexDirection: 'column', gap: 12 }}>
 
             {/* Info card */}
             <div style={{ padding: 14, background: 'var(--paper-card)', border: '0.5px solid rgba(26,20,24,0.12)', borderRadius: 2 }}>
