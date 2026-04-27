@@ -269,8 +269,144 @@ export function StoreClient({ initialData }: { initialData: StoreData }) {
         </div>
       </div>
 
+      {/* PackOpen overlay — shows during loading AND while results are ready but not yet revealed */}
+      {showAnimation && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 50,
+          background: 'radial-gradient(ellipse at 50% 30%, #f5d9d1 0%, #faf7f2 40%, #faf7f2 100%)',
+          display: 'flex', flexDirection: 'column',
+          overflow: 'hidden',
+          color: 'var(--ink)',
+        }}>
+          {/* Spinning rays */}
+          <div style={{
+            position: 'absolute', top: '50%', left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: '200vmax', height: '200vmax',
+            background: `repeating-conic-gradient(from 0deg,
+              rgba(138,47,59,0.08) 0deg 8deg,
+              transparent 8deg 20deg)`,
+            animation: 'spinRays 40s linear infinite',
+            pointerEvents: 'none',
+          }}/>
+
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '64px 16px 0', position: 'relative', zIndex: 2 }}>
+            <button
+              onClick={closeResults}
+              style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 15, color: 'var(--ink)' }}
+            >✕</button>
+            <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(26,20,24,0.6)' }}>
+              {loading ? 'Abriendo sobre...' : 'Sobre listo'}
+            </div>
+            <div style={{ width: 28 }}/>
+          </div>
+
+          {/* Title */}
+          <div style={{ padding: '12px 20px 0', textAlign: 'center', position: 'relative', zIndex: 2 }}>
+            <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'var(--wine)' }}>
+              {selectedCollection?.name ?? ''} · {pullResults ? `${pullResults.length} foto${pullResults.length > 1 ? 's' : ''}` : '...'}
+            </div>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontStyle: 'italic', fontWeight: 400, letterSpacing: '-0.03em', lineHeight: 0.95, marginTop: 6 }}>
+              Colección<br/>
+              <span style={{ color: 'var(--wine)' }}>{selectedCollection?.name ?? ''}</span>
+            </div>
+          </div>
+
+          {/* Envelope */}
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', zIndex: 2 }}>
+            <div style={{ position: 'relative', width: 200, height: 260, animation: 'envelopeShake 3s ease-in-out infinite', transformOrigin: 'center bottom' }}>
+              {/* Body */}
+              <div style={{
+                position: 'absolute', inset: 0,
+                background: 'linear-gradient(165deg, var(--ink) 0%, #0c090b 100%)',
+                borderRadius: 3,
+                boxShadow: '0 30px 60px rgba(138,47,59,0.3), 0 0 50px rgba(232,164,164,0.2)',
+                overflow: 'hidden',
+              }}>
+                {/* Inner border */}
+                <div style={{ position: 'absolute', inset: 16, border: '0.5px solid rgba(232,164,164,0.5)', borderRadius: 1 }}/>
+                {/* Brand */}
+                <div style={{ position: 'absolute', top: 22, left: 0, right: 0, textAlign: 'center', fontSize: 7, letterSpacing: '0.4em', color: 'rgba(232,164,164,0.7)', fontWeight: 700, fontFamily: 'var(--font-body)' }}>KWELPS</div>
+                {/* Collection name */}
+                <div style={{ position: 'absolute', top: 36, left: 16, right: 16, textAlign: 'center', fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 15, color: 'rgba(232,164,164,0.9)', fontWeight: 500, lineHeight: 1.1 }}>
+                  {selectedCollection?.name ?? ''}
+                </div>
+                {/* Big K watermark */}
+                <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 96, fontWeight: 400, color: 'rgba(232,164,164,0.12)', lineHeight: 1 }}>K</div>
+                {/* Edition label */}
+                <div style={{ position: 'absolute', bottom: 22, left: 0, right: 0, textAlign: 'center', fontSize: 7, color: 'rgba(232,164,164,0.5)', letterSpacing: '0.3em', fontWeight: 600 }}>
+                  EDICIÓN 2026
+                </div>
+              </div>
+
+              {/* Top flap */}
+              <div style={{
+                position: 'absolute', top: -6, left: 0, right: 0, height: '54%',
+                background: 'linear-gradient(180deg, #2a2024 0%, var(--ink) 100%)',
+                clipPath: 'polygon(0 0, 100% 0, 50% 100%)',
+                transformOrigin: 'top center',
+                transform: 'perspective(400px) rotateX(-30deg)',
+                boxShadow: '0 6px 12px rgba(0,0,0,0.35)',
+              }}/>
+
+              {/* Wax seal */}
+              <div style={{
+                position: 'absolute', top: '20%', left: '50%', transform: 'translate(-50%, 0)',
+                width: 48, height: 48, borderRadius: '50%',
+                background: 'radial-gradient(circle at 35% 35%, #d04a58 0%, #8a2f3b 70%, #4a1820 100%)',
+                boxShadow: '0 4px 10px rgba(0,0,0,0.5), inset 0 2px 0 rgba(255,255,255,0.2)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 22, color: 'var(--blush)', fontWeight: 500,
+              }}>K</div>
+
+              {/* Sparkles */}
+              {[
+                { top: -15, left: -10, delay: '0s' },
+                { top: 15, right: -18, delay: '0.5s' },
+                { top: '55%', left: -24, delay: '1s' },
+                { bottom: -20, right: '25%', delay: '1.5s' },
+                { top: '35%', right: -10, delay: '2s' },
+              ].map((s, i) => (
+                <div key={i} style={{
+                  position: 'absolute', width: 8, height: 8,
+                  background: 'var(--wine)', borderRadius: '50%',
+                  animation: `sparkle 2.5s ease-in-out ${s.delay} infinite`,
+                  top: s.top, left: (s as {left?: number|string}).left, right: (s as {right?: number|string}).right, bottom: (s as {bottom?: number}).bottom,
+                }}/>
+              ))}
+            </div>
+          </div>
+
+          {/* CTA */}
+          <div style={{ padding: '0 20px 48px', position: 'relative', zIndex: 2 }}>
+            {loading ? (
+              <div style={{ padding: 16, background: 'rgba(26,20,24,0.08)', textAlign: 'center', fontSize: 10, fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase', borderRadius: 2, color: 'rgba(26,20,24,0.4)' }}>
+                Procesando compra...
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowAnimation(false)}
+                style={{
+                  width: '100%', padding: 16, background: 'var(--ink)', color: 'var(--paper)',
+                  textAlign: 'center', fontSize: 10, fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase',
+                  borderRadius: 2, border: 'none', cursor: 'pointer',
+                  animation: 'pulseCta 2s ease-in-out infinite',
+                  fontFamily: 'var(--font-body)',
+                }}
+              >
+                Rasgar sobre
+              </button>
+            )}
+            <div style={{ fontSize: 9, color: 'rgba(26,20,24,0.5)', textAlign: 'center', marginTop: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>
+              {pullResults ? `${pullResults.length} fotografía${pullResults.length > 1 ? 's' : ''} · toca para revelar` : '...'}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Results modal */}
-      {pullResults && (
+      {!showAnimation && pullResults && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(12,9,11,0.97)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16, overflowY: 'auto' }}>
           {pullResults.some(p => p.rarity === 'LEGENDARY') && revealedCards.size > 0 && <LegendaryParticles />}
 
