@@ -248,11 +248,19 @@ export async function purchaseSingle(collectionId?: string): Promise<PullResult>
       })
     }
 
-    // Determine rarity (simpler for single - just weighted random)
+    // Check if this is the user's first purchase
+    const existingPhotosCount = await tx.userPhoto.count({ where: { userId: user.id } })
+    const isFirstPurchase = existingPhotosCount === 0
+
+    // Determine rarity
     const isGuaranteedLegendary = pityCounter.legendaryCounter >= 40
     let rarity: Rarity
 
-    if (isGuaranteedLegendary) {
+    if (isFirstPurchase) {
+      // First purchase: guarantee COMMON or RARE (60/40 split between the two)
+      const rand = crypto.getRandomValues(new Uint32Array(1))[0] / 0x100000000
+      rarity = rand < 0.6 ? 'COMMON' : 'RARE'
+    } else if (isGuaranteedLegendary) {
       rarity = 'LEGENDARY'
     } else {
       // Weighted random selection
