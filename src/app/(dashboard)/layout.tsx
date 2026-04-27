@@ -1,4 +1,4 @@
-import { Navbar } from '@/components/layout/navbar'
+import { BottomNav } from '@/components/layout/bottom-nav'
 
 export default function DashboardLayout({
   children,
@@ -6,11 +6,16 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   return (
-    <>
-      <Navbar />
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div style={{ minHeight: '100vh', background: 'var(--paper)' }}>
+      <main style={{
+        maxWidth: '430px',
+        margin: '0 auto',
+        width: '100%',
+        paddingBottom: '80px',
+      }}>
         {children}
       </main>
-    </>
+      <BottomNav />
+    </div>
   )
 }
