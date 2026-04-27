@@ -347,7 +347,11 @@ export async function adminBulkUpdateBalance(
   return { success, failed: errors.length, errors }
 }
 
-export async function claimWelcomeBonus(): Promise<{ success: boolean; error?: string }> {
+export async function claimWelcomeBonus(): Promise<{
+  success: boolean
+  error?: string
+  bonusPhoto?: { id: string; url: string; rarity: string; collectionName: string }
+}> {
   const supabase = await createClient()
   const {
     data: { user },
@@ -358,6 +362,8 @@ export async function claimWelcomeBonus(): Promise<{ success: boolean; error?: s
   }
 
   try {
+    let bonusPhoto: { id: string; url: string; rarity: string; collectionName: string } | null = null
+
     await prisma.$transaction(async (tx) => {
       const wallet = await tx.wallet.findUnique({ where: { userId: user.id } })
 
@@ -401,11 +407,39 @@ export async function claimWelcomeBonus(): Promise<{ success: boolean; error?: s
           bonusClaimed: true,
         },
       })
+
+      // Pick a random COMMON or RARE photo from the active collection
+      const activeCollection = await tx.collection.findFirst({
+        where: { active: true },
+        include: {
+          photos: {
+            where: { rarity: { in: ['COMMON', 'RARE'] } },
+            select: { id: true, url: true, rarity: true },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      })
+
+      if (activeCollection && activeCollection.photos.length > 0) {
+        const randomIndex = Math.floor(
+          (crypto.getRandomValues(new Uint32Array(1))[0] / 0x100000000) * activeCollection.photos.length
+        )
+        const chosenPhoto = activeCollection.photos[randomIndex]
+
+        await tx.userPhoto.upsert({
+          where: { userId_photoId: { userId: user.id, photoId: chosenPhoto.id } },
+          create: { userId: user.id, photoId: chosenPhoto.id, quantity: 1 },
+          update: { quantity: { increment: 1 } },
+        })
+
+        bonusPhoto = { id: chosenPhoto.id, url: chosenPhoto.url, rarity: chosenPhoto.rarity, collectionName: activeCollection.name }
+      }
     })
 
     revalidatePath('/dashboard')
     revalidatePath('/wallet')
-    return { success: true }
+    revalidatePath('/album')
+    return { success: true, bonusPhoto: bonusPhoto ?? undefined }
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Error al reclamar' }
   }
