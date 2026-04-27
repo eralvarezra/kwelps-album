@@ -1,11 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
-import { NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+import { NextRequest, NextResponse } from 'next/server'
+import { getClientIp } from '@/lib/rate-limit'
 
-/**
- * Auth callback handler for email confirmation
- * This route is called when a user clicks the confirmation link in their email
- */
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
   const next = searchParams.get('next') ?? '/dashboard'
@@ -15,25 +13,34 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!error) {
-      // Get the user after successful exchange
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
+      const { data: { user } } = await supabase.auth.getUser()
+      const ip = getClientIp(request)
 
-      if (user) {
-        // Create user and wallet in our database
+      if (user && user.email) {
         try {
-          await fetch(`${origin}/api/user/create`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              id: user.id,
-              email: user.email,
-            }),
+          await prisma.user.upsert({
+            where: { id: user.id },
+            create: { id: user.id, email: user.email, registrationIp: ip },
+            update: { email: user.email },
+          })
+          await prisma.user.updateMany({
+            where: { id: user.id, registrationIp: null },
+            data: { registrationIp: ip },
+          })
+
+          await prisma.wallet.upsert({
+            where: { userId: user.id },
+            create: { userId: user.id, balance: 0, adminBalance: 0, bonusClaimed: false },
+            update: {},
+          })
+
+          await prisma.pityCounter.upsert({
+            where: { userId: user.id },
+            create: { userId: user.id, legendaryCounter: 0 },
+            update: {},
           })
         } catch (err) {
           console.error('Error creating user in database:', err)
-          // Continue anyway, user can be created later
         }
       }
 
@@ -41,6 +48,5 @@ export async function GET(request: Request) {
     }
   }
 
-  // Return the user to an error page with instructions
   return NextResponse.redirect(`${origin}/login?error=Unable to verify email. The link may have expired.`)
 }

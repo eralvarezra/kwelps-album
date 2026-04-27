@@ -102,7 +102,7 @@ export async function purchasePack(collectionId?: string): Promise<PackResult> {
     }
 
     // Determine if guaranteed legendary
-    const isGuaranteedLegendary = pityCounter.legendaryCounter >= 20
+    const isGuaranteedLegendary = pityCounter.legendaryCounter >= 40
 
     // Generate rarities for pack
     const rarities = generatePackRarities(isGuaranteedLegendary)
@@ -249,7 +249,7 @@ export async function purchaseSingle(collectionId?: string): Promise<PullResult>
     }
 
     // Determine rarity (simpler for single - just weighted random)
-    const isGuaranteedLegendary = pityCounter.legendaryCounter >= 20
+    const isGuaranteedLegendary = pityCounter.legendaryCounter >= 40
     let rarity: Rarity
 
     if (isGuaranteedLegendary) {
@@ -359,8 +359,8 @@ export async function getPityInfo() {
 
   return {
     current: counter,
-    remaining: 20 - counter,
-    isGuaranteed: counter >= 20,
+    remaining: 40 - counter,
+    isGuaranteed: counter >= 40,
   }
 }
 

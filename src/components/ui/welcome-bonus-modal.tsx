@@ -34,7 +34,7 @@ export function WelcomeBonusModal({ show }: { show: boolean }) {
         </p>
         <p className="text-gray-300 mb-6">
           Como regalo de bienvenida te regalamos{' '}
-          <span className="text-yellow-400 font-bold text-xl">.00 USD</span>{' '}
+          <span className="text-yellow-400 font-bold text-xl">$2.00 USD</span>{' '}
           para que pruebes tu suerte en la tienda. ¡Buena suerte!
         </p>
         {error && (
@@ -42,13 +42,22 @@ export function WelcomeBonusModal({ show }: { show: boolean }) {
             {error}
           </div>
         )}
-        <button
-          onClick={handleClaim}
-          disabled={loading}
-          className="w-full py-4 bg-gradient-to-r from-yellow-500 to-amber-600 text-white font-bold rounded-xl text-lg hover:from-yellow-600 hover:to-amber-700 transition-colors disabled:opacity-50 shadow-lg shadow-yellow-500/20"
-        >
-          {loading ? 'Reclamando...' : '¡Reclamar mis !'}
-        </button>
+        {error ? (
+          <button
+            onClick={() => setVisible(false)}
+            className="w-full py-4 bg-gray-700 text-white font-bold rounded-xl text-lg hover:bg-gray-600 transition-colors shadow-lg"
+          >
+            Cerrar
+          </button>
+        ) : (
+          <button
+            onClick={handleClaim}
+            disabled={loading}
+            className="w-full py-4 bg-gradient-to-r from-yellow-500 to-amber-600 text-white font-bold rounded-xl text-lg hover:from-yellow-600 hover:to-amber-700 transition-colors disabled:opacity-50 shadow-lg shadow-yellow-500/20"
+          >
+            {loading ? 'Reclamando...' : '¡Reclamar mis $2!'}
+          </button>
+        )}
       </div>
     </div>
   )

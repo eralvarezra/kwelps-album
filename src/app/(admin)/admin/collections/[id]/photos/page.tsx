@@ -37,7 +37,7 @@ const RARITY_PROBS = {
 // Precios
 const PACK_PRICE = 5.00
 const PHOTOS_PER_PACK = 4
-const PITY_THRESHOLD = 20
+const PITY_THRESHOLD = 40
 
 // Calcular costo estimado para completar una rareza
 function calculateRarityCost(count: number, probability: number, usePity: boolean = false): { pulls: number; cost: number } {

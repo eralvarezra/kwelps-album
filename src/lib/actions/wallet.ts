@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth/admin'
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { headers } from 'next/headers'
 
 export async function getWallet() {
   const supabase = await createClient()
@@ -15,11 +16,20 @@ export async function getWallet() {
     return null
   }
 
-  // Ensure user exists in our database
+  const headersList = await headers()
+  const forwarded = headersList.get('x-forwarded-for')
+  const realIp = headersList.get('x-real-ip')
+  const ip = (forwarded ? forwarded.split(',')[0].trim() : realIp) || 'unknown'
+
+  // Ensure user exists in our database (trigger may have created it without IP)
   await prisma.user.upsert({
     where: { id: user.id },
-    create: { id: user.id, email: user.email! },
+    create: { id: user.id, email: user.email!, registrationIp: ip },
     update: { email: user.email! },
+  })
+  await prisma.user.updateMany({
+    where: { id: user.id, registrationIp: null },
+    data: { registrationIp: ip },
   })
 
   // Ensure wallet exists
@@ -353,6 +363,24 @@ export async function claimWelcomeBonus(): Promise<{ success: boolean; error?: s
 
       if (!wallet || wallet.bonusClaimed) {
         throw new Error('Bono no disponible')
+      }
+
+      const currentUser = await tx.user.findUnique({
+        where: { id: user.id },
+        select: { registrationIp: true },
+      })
+
+      if (currentUser?.registrationIp && currentUser.registrationIp !== 'unknown') {
+        const ipAlreadyClaimed = await tx.wallet.findFirst({
+          where: {
+            bonusClaimed: true,
+            user: { registrationIp: currentUser.registrationIp },
+            NOT: { userId: user.id },
+          },
+        })
+        if (ipAlreadyClaimed) {
+          throw new Error('Bono no disponible')
+        }
       }
 
       await tx.transaction.create({

@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    environment:
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - DATABASE_URL=${DATABASE_URL}
+      - ADMIN_EMAIL=${ADMIN_EMAIL}
+      - NEXT_PUBLIC_APP_URL=https://kwelps.app
+      - PAYPAL_CLIENT_ID=${PAYPAL_CLIENT_ID}
+      - PAYPAL_CLIENT_SECRET=${PAYPAL_CLIENT_SECRET}
+      - PAYPAL_WEBHOOK_ID=${PAYPAL_WEBHOOK_ID}
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      # HTTPS router
+      - "traefik.http.routers.kwelps.rule=Host(`kwelps.app`) || Host(`www.kwelps.app`)"
+      - "traefik.http.routers.kwelps.entrypoints=websecure"
+      - "traefik.http.routers.kwelps.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.kwelps.service=kwelps"
+      # HTTP router (redirect to HTTPS)
+      - "traefik.http.routers.kwelps-redirect.rule=Host(`kwelps.app`) || Host(`www.kwelps.app`)"
+      - "traefik.http.routers.kwelps-redirect.entrypoints=web"
+      - "traefik.http.routers.kwelps-redirect.middlewares=kwelps-redirect"
+      - "traefik.http.middlewares.kwelps-redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.kwelps-redirect.redirectscheme.permanent=true"
+      # Service
+      - "traefik.http.services.kwelps.loadbalancer.server.port=3000"
+    networks:
+      - traefik_network
+
+networks:
+  traefik_network:
+    external: true

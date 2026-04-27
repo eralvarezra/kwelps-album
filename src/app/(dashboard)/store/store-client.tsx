@@ -179,11 +179,11 @@ export function StoreClient({ initialData }: { initialData: StoreData }) {
               className={`h-3 rounded-full transition-all ${
                 data.pity.isGuaranteed ? 'bg-yellow-500' : 'bg-purple-500'
               }`}
-              style={{ width: `${Math.min((data.pity.current / 20) * 100, 100)}%` }}
+              style={{ width: `${Math.min((data.pity.current / 40) * 100, 100)}%` }}
             />
           </div>
           <p className="text-xs text-gray-400 mt-1">
-            {data.pity.current}/20 pulls sin legendario
+            {data.pity.current}/40 pulls sin legendario
           </p>
           <p className="text-xs text-gray-500 mt-2">
             Cada foto que abras suma al contador. A los 20 pulls sin legendario, el siguiente está garantizado.
@@ -369,7 +369,7 @@ export function StoreClient({ initialData }: { initialData: StoreData }) {
                               : ''
                           }`}>
                             <img
-                              src={photo.thumbnailUrl || photo.url}
+                              src={photo.url}
                               alt="Photo"
                               className="w-full h-full object-cover"
                             />

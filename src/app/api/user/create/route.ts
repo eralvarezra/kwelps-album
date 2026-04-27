@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     // 6. Create user if not exists (upsert for idempotency)
     const user = await prisma.user.upsert({
       where: { id },
-      create: { id, email: userEmail },
+      create: { id, email: userEmail, registrationIp: ip },
       update: { email: userEmail },
     })
 
