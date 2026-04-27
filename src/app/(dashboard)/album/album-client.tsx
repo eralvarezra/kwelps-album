@@ -92,6 +92,81 @@ function CollectionChips({
   )
 }
 
+type AlbumPhoto = AlbumCollection['photos'][0]
+
+function PageView({
+  photos, pageIndex, chapter, startNum, onPhotoClick, rarityColor, rarityLabels,
+}: {
+  photos: AlbumPhoto[]
+  pageIndex: number
+  chapter: string
+  startNum: number
+  onPhotoClick: (p: AlbumPhoto) => void
+  rarityColor: Record<string, string>
+  rarityLabels: Record<string, string>
+}) {
+  const cells = [...photos]
+  while (cells.length < 10) cells.push(null as unknown as AlbumPhoto)
+
+  return (
+    <div style={{ width: '100%', height: '100%', background: 'var(--paper)', padding: '10px 12px 12px', display: 'flex', flexDirection: 'column', backfaceVisibility: 'hidden', color: 'var(--ink)' }}>
+      {/* Editorial page header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', paddingBottom: 6, marginBottom: 8, borderBottom: '0.5px solid rgba(26,20,24,0.18)' }}>
+        <div style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase' }}>{chapter}</div>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'rgba(26,20,24,0.55)' }}>p.{String(pageIndex + 1).padStart(2, '0')}</div>
+      </div>
+
+      {/* 2×5 uniform grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: 'repeat(5, 1fr)', gap: '6px 8px', flex: 1 }}>
+        {cells.map((photo, i) => {
+          const num = startNum + i
+          if (!photo) {
+            return (
+              <div key={`empty-${i}`} style={{ position: 'relative', aspectRatio: '3/4', background: 'var(--paper-warm)', borderRadius: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '0.5px solid rgba(26,20,24,0.08)' }}>
+                <div style={{ position: 'absolute', inset: 6, border: '0.5px dashed rgba(26,20,24,0.18)' }} />
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontStyle: 'italic', color: 'rgba(26,20,24,0.18)' }}>?</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'rgba(26,20,24,0.28)', letterSpacing: '0.1em', marginTop: 2 }}>N°{String(num).padStart(2, '0')}</div>
+              </div>
+            )
+          }
+          const isOwned = photo.quantity > 0
+          const color = rarityColor[photo.rarity]
+          const isLegendary = photo.rarity === 'LEGENDARY'
+          const isEpic = photo.rarity === 'EPIC'
+          const borderColor = isLegendary ? '#d4a356' : isEpic ? '#e8a4a4' : photo.rarity === 'RARE' ? '#8a7a6a' : 'rgba(26,20,24,0.15)'
+
+          if (!isOwned) {
+            return (
+              <div key={photo.id} style={{ position: 'relative', aspectRatio: '3/4', background: 'var(--paper-warm)', borderRadius: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '0.5px solid rgba(26,20,24,0.08)' }}>
+                <div style={{ position: 'absolute', inset: 6, border: '0.5px dashed rgba(26,20,24,0.18)' }} />
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontStyle: 'italic', color: 'rgba(26,20,24,0.18)' }}>?</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'rgba(26,20,24,0.28)', letterSpacing: '0.1em', marginTop: 2 }}>N°{String(num).padStart(2, '0')}</div>
+              </div>
+            )
+          }
+
+          return (
+            <button
+              key={photo.id}
+              onClick={() => onPhotoClick(photo)}
+              style={{ position: 'relative', aspectRatio: '3/4', borderRadius: 2, overflow: 'hidden', border: `1px solid ${borderColor}`, padding: 0, cursor: 'pointer', boxShadow: isLegendary ? '0 0 0 2px #f5d9b5, 0 4px 8px rgba(212,163,86,0.2)' : isEpic ? '0 0 0 1px #f5d9d1' : '0 2px 4px rgba(0,0,0,0.06)' }}
+            >
+              <img src={photo.thumbnailUrl || photo.url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              {isLegendary && <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(115deg, transparent 30%, rgba(255,220,180,0.25) 45%, rgba(244,215,106,0.12) 50%, transparent 65%)', mixBlendMode: 'overlay', pointerEvents: 'none' }} />}
+              <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '45%', background: 'linear-gradient(180deg, transparent, rgba(0,0,0,0.75))', pointerEvents: 'none' }} />
+              <div style={{ position: 'absolute', top: 4, left: 4, fontFamily: 'var(--font-mono)', fontSize: 7, color: 'rgba(255,255,255,0.85)', letterSpacing: '0.1em', fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>N°{String(num).padStart(2, '0')}</div>
+              {photo.quantity > 1 && <div style={{ position: 'absolute', top: 4, right: 4, background: 'var(--wine)', color: 'var(--paper)', fontSize: 6, fontWeight: 700, padding: '1px 3px', borderRadius: 1 }}>×{photo.quantity}</div>}
+              <div style={{ position: 'absolute', bottom: 4, left: 4, right: 4 }}>
+                <div style={{ fontSize: 6, color: isLegendary ? '#f5d9b5' : isEpic ? '#f5d9d1' : 'rgba(255,255,255,0.7)', letterSpacing: '0.2em', textTransform: 'uppercase', fontWeight: 700 }}>{rarityLabels[photo.rarity]}</div>
+              </div>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export function AlbumClient({
   initialAlbum,
   initialStats,
@@ -109,6 +184,10 @@ export function AlbumClient({
   const [fusionResult, setFusionResult]       = useState<Photo | null>(null)
   const [activeTab, setActiveTab]             = useState<'book' | 'fusion' | 'legendary'>('book')
   const [bookPage, setBookPage]               = useState(0)
+  const [flipping, setFlipping]               = useState<'next' | 'prev' | null>(null)
+  const flipTimerRef                          = useRef<NodeJS.Timeout | null>(null)
+
+  useEffect(() => () => { if (flipTimerRef.current) clearTimeout(flipTimerRef.current) }, [])
 
   const [selectedLegendaries, setSelectedLegendaries] = useState<Photo[]>([])
   const [exchangingLegendary, setExchangingLegendary] = useState(false)
@@ -239,8 +318,25 @@ export function AlbumClient({
     ? Math.round((collection.collectedPhotos / collection.totalPhotos) * 100)
     : 0
 
+  const totalPages = Math.ceil(filteredPhotos.length / 10)
+
+  const flipNext = () => {
+    if (flipping || bookPage >= totalPages - 1) return
+    setFlipping('next')
+    flipTimerRef.current = setTimeout(() => { setBookPage(p => p + 1); setFlipping(null) }, 700)
+  }
+
+  const flipPrev = () => {
+    if (flipping || bookPage <= 0) return
+    setFlipping('prev')
+    flipTimerRef.current = setTimeout(() => { setBookPage(p => p - 1); setFlipping(null) }, 700)
+  }
+
+  const pagePhotos      = (pg: number) => filteredPhotos.slice(pg * 10, pg * 10 + 10)
+  const chapterLabels   = ['Capítulo I', 'Capítulo II', 'Capítulo III', 'Capítulo IV']
+
   return (
-    <div style={{ background: 'var(--paper)', color: 'var(--ink)', paddingTop: 54 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: 'var(--paper)', color: 'var(--ink)', paddingTop: 54 }}>
 
       {/* Collection stats strip */}
       <div style={{ padding: '10px 16px 12px', borderBottom: '0.5px solid rgba(26,20,24,0.1)' }}>
@@ -339,91 +435,88 @@ export function AlbumClient({
       )}
 
       {/* Content area */}
-      <div>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-        {/* Book tab — paginated uniform grid, 10 photos per page */}
+        {/* Book tab — 3D flip animation, 10 photos per page */}
         {activeTab === 'book' && collection && (
-          <div style={{ padding: '10px 16px 100px' }}>
-            {/* Page navigation */}
-            {(() => {
-              const totalPages = Math.ceil(filteredPhotos.length / 10)
-              return totalPages > 1 ? (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                  <button
-                    onClick={() => setBookPage(p => Math.max(0, p - 1))}
-                    disabled={bookPage === 0}
-                    style={{ padding: '6px 12px', background: 'transparent', border: '0.5px solid rgba(26,20,24,0.2)', borderRadius: 2, fontSize: 9, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: bookPage === 0 ? 'rgba(26,20,24,0.25)' : 'var(--ink)', cursor: bookPage === 0 ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)' }}
-                  >← Anterior</button>
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                    {Array.from({ length: totalPages }).map((_, i) => (
-                      <button
-                        key={i}
-                        onClick={() => setBookPage(i)}
-                        style={{ width: 22, height: 22, borderRadius: 2, border: bookPage === i ? 'none' : '0.5px solid rgba(26,20,24,0.2)', background: bookPage === i ? 'var(--ink)' : 'transparent', color: bookPage === i ? 'var(--paper)' : 'rgba(26,20,24,0.5)', fontSize: 9, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-mono)' }}
-                      >{i + 1}</button>
-                    ))}
+          <div style={{ flex: 1, position: 'relative', padding: '0 20px 8px', perspective: '1400px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+
+            {/* Book container */}
+            <div style={{ position: 'relative', width: '100%', aspectRatio: '0.58', maxHeight: '100%', transformStyle: 'preserve-3d' }}>
+
+              {/* Dark binding shadow behind */}
+              <div style={{ position: 'absolute', inset: '-6px -4px -6px -4px', background: 'var(--ink)', borderRadius: 3, boxShadow: '0 20px 40px rgba(0,0,0,0.3), 0 4px 8px rgba(0,0,0,0.2)' }} />
+              {/* Left spine */}
+              <div style={{ position: 'absolute', left: -4, top: -6, bottom: -6, width: 8, background: 'linear-gradient(90deg, #0c090b 0%, var(--ink) 100%)', borderRadius: '2px 0 0 2px' }} />
+
+              {/* Static page behind (destination) */}
+              <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', boxShadow: 'inset 8px 0 12px rgba(0,0,0,0.08)' }}>
+                <PageView
+                  photos={pagePhotos(flipping === 'next' ? bookPage + 1 : flipping === 'prev' ? bookPage - 1 : bookPage)}
+                  pageIndex={flipping === 'next' ? bookPage + 1 : flipping === 'prev' ? bookPage - 1 : bookPage}
+                  chapter={chapterLabels[flipping === 'next' ? bookPage + 1 : flipping === 'prev' ? bookPage - 1 : bookPage] ?? 'Colección'}
+                  startNum={(flipping === 'next' ? bookPage + 1 : flipping === 'prev' ? bookPage - 1 : bookPage) * 10 + 1}
+                  onPhotoClick={handlePhotoClick}
+                  rarityColor={rarityColor}
+                  rarityLabels={rarityLabels}
+                />
+              </div>
+
+              {/* Flipping page — next */}
+              {flipping === 'next' && (
+                <div style={{ position: 'absolute', inset: 0, transformOrigin: 'left center', transformStyle: 'preserve-3d', animation: 'flipNext 0.7s cubic-bezier(.45,.05,.55,.95) forwards', zIndex: 5 }}>
+                  <div style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', overflow: 'hidden', boxShadow: 'inset 8px 0 12px rgba(0,0,0,0.08)' }}>
+                    <PageView photos={pagePhotos(bookPage)} pageIndex={bookPage} chapter={chapterLabels[bookPage] ?? 'Colección'} startNum={bookPage * 10 + 1} onPhotoClick={handlePhotoClick} rarityColor={rarityColor} rarityLabels={rarityLabels} />
                   </div>
-                  <button
-                    onClick={() => setBookPage(p => Math.min(totalPages - 1, p + 1))}
-                    disabled={bookPage >= totalPages - 1}
-                    style={{ padding: '6px 12px', background: 'transparent', border: '0.5px solid rgba(26,20,24,0.2)', borderRadius: 2, fontSize: 9, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: bookPage >= totalPages - 1 ? 'rgba(26,20,24,0.25)' : 'var(--ink)', cursor: bookPage >= totalPages - 1 ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)' }}
-                  >Siguiente →</button>
+                  <div style={{ position: 'absolute', inset: 0, transform: 'rotateY(180deg)', backfaceVisibility: 'hidden', overflow: 'hidden', boxShadow: 'inset -8px 0 12px rgba(0,0,0,0.08)' }}>
+                    <PageView photos={pagePhotos(bookPage + 1)} pageIndex={bookPage + 1} chapter={chapterLabels[bookPage + 1] ?? 'Colección'} startNum={(bookPage + 1) * 10 + 1} onPhotoClick={handlePhotoClick} rarityColor={rarityColor} rarityLabels={rarityLabels} />
+                  </div>
                 </div>
-              ) : null
-            })()}
+              )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              {filteredPhotos.slice(bookPage * 10, bookPage * 10 + 10).map((photo, index) => {
-                const isOwned = photo.quantity > 0
-                const color   = rarityColor[photo.rarity]
-                const num     = bookPage * 10 + index + 1
+              {/* Flipping page — prev */}
+              {flipping === 'prev' && (
+                <div style={{ position: 'absolute', inset: 0, transformOrigin: 'left center', transformStyle: 'preserve-3d', transform: 'rotateY(-180deg)', animation: 'flipPrev 0.7s cubic-bezier(.45,.05,.55,.95) forwards', zIndex: 5 }}>
+                  <div style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', overflow: 'hidden' }}>
+                    <PageView photos={pagePhotos(bookPage - 1)} pageIndex={bookPage - 1} chapter={chapterLabels[bookPage - 1] ?? 'Colección'} startNum={(bookPage - 1) * 10 + 1} onPhotoClick={handlePhotoClick} rarityColor={rarityColor} rarityLabels={rarityLabels} />
+                  </div>
+                  <div style={{ position: 'absolute', inset: 0, transform: 'rotateY(180deg)', backfaceVisibility: 'hidden', overflow: 'hidden' }}>
+                    <PageView photos={pagePhotos(bookPage)} pageIndex={bookPage} chapter={chapterLabels[bookPage] ?? 'Colección'} startNum={bookPage * 10 + 1} onPhotoClick={handlePhotoClick} rarityColor={rarityColor} rarityLabels={rarityLabels} />
+                  </div>
+                </div>
+              )}
 
-                return (
-                  <button
-                    key={photo.id}
-                    onClick={() => isOwned ? handlePhotoClick(photo) : undefined}
-                    style={{
-                      position: 'relative', aspectRatio: '3/4', borderRadius: 2,
-                      overflow: 'hidden', border: 'none', padding: 0,
-                      cursor: isOwned ? 'pointer' : 'default',
-                      background: 'var(--paper-warm)',
-                      borderTop: `2px solid ${isOwned ? color : color + '33'}`,
-                      display: 'block',
-                    }}
-                  >
-                    {isOwned ? (
-                      <>
-                        <img src={photo.thumbnailUrl || photo.url} alt="" loading="lazy"
-                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, transparent 55%, rgba(0,0,0,0.65) 100%)' }} />
-                        {photo.quantity > 1 && (
-                          <div style={{ position: 'absolute', top: 5, right: 5, background: 'var(--wine)', color: 'var(--paper)', fontSize: 7, fontWeight: 700, padding: '2px 4px', borderRadius: 1 }}>
-                            ×{photo.quantity}
-                          </div>
-                        )}
-                        <div style={{ position: 'absolute', bottom: 5, left: 6, right: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 7, color: 'rgba(250,247,242,0.6)' }}>#{num}</span>
-                          <span style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color }}>
-                            {rarityLabels[photo.rarity].slice(0, 3)}
-                          </span>
-                        </div>
-                      </>
-                    ) : (
-                      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 700, color: 'rgba(26,20,24,0.18)' }}>{num}</span>
-                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: color, opacity: 0.3, display: 'block' }} />
-                      </div>
-                    )}
-                  </button>
-                )
-              })}
+              {/* Nav arrows */}
+              <div onClick={flipPrev} style={{ position: 'absolute', left: -10, top: '50%', transform: 'translateY(-50%)', width: 30, height: 50, background: 'var(--ink)', color: 'var(--paper)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, cursor: bookPage === 0 ? 'not-allowed' : 'pointer', opacity: bookPage === 0 ? 0.25 : 1, zIndex: 10, userSelect: 'none' }}>‹</div>
+              <div onClick={flipNext} style={{ position: 'absolute', right: -10, top: '50%', transform: 'translateY(-50%)', width: 30, height: 50, background: 'var(--ink)', color: 'var(--paper)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, cursor: bookPage >= totalPages - 1 ? 'not-allowed' : 'pointer', opacity: bookPage >= totalPages - 1 ? 0.25 : 1, zIndex: 10, userSelect: 'none' }}>›</div>
             </div>
+
+            {/* Page dots */}
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center', justifyContent: 'center', padding: '8px 0 4px' }}>
+              {Array.from({ length: totalPages }).map((_, i) => (
+                <div key={i} onClick={() => !flipping && setBookPage(i)} style={{ width: i === bookPage ? 14 : 4, height: 3, background: i === bookPage ? 'var(--ink)' : 'rgba(26,20,24,0.2)', transition: 'all 0.3s', cursor: 'pointer', borderRadius: 2 }} />
+              ))}
+            </div>
+
+            <style>{`
+              @keyframes flipNext {
+                0%   { transform: rotateY(0deg); }
+                50%  { box-shadow: -30px 0 50px rgba(0,0,0,0.3); }
+                100% { transform: rotateY(-180deg); }
+              }
+              @keyframes flipPrev {
+                0%   { transform: rotateY(-180deg); }
+                50%  { box-shadow: 30px 0 50px rgba(0,0,0,0.3); }
+                100% { transform: rotateY(0deg); }
+              }
+            `}</style>
           </div>
         )}
 
+
         {/* Fusion tab */}
         {activeTab === 'fusion' && collection && (
-          <div style={{ padding: 16, paddingBottom: 100, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ padding: 16, paddingBottom: 100, overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
 
             {/* Info card */}
             <div style={{ padding: 14, background: 'var(--paper-card)', border: '0.5px solid rgba(26,20,24,0.12)', borderRadius: 2 }}>
@@ -538,7 +631,7 @@ export function AlbumClient({
 
         {/* Legendary tab */}
         {activeTab === 'legendary' && collection && (
-          <div style={{ padding: 16, paddingBottom: 100, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ padding: 16, paddingBottom: 100, overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
 
             {/* Info card */}
             <div style={{ padding: 14, background: 'var(--paper-card)', border: '0.5px solid rgba(26,20,24,0.12)', borderRadius: 2 }}>
