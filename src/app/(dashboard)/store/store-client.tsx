@@ -194,20 +194,30 @@ export function StoreClient({ initialData }: { initialData: StoreData }) {
               <div>· Garantizado 1 raro+</div>
               <div>· Pity counter: +4</div>
             </div>
-            <button
-              onClick={handlePurchasePack}
-              disabled={loading !== null || data.balance < PACK_PRICE}
-              style={{
-                background: loading !== null || data.balance < PACK_PRICE ? 'rgba(232,164,164,0.4)' : 'var(--rose)',
-                color: 'var(--ink)', padding: 10, textAlign: 'center',
+            {data.balance < PACK_PRICE ? (
+              <Link href="/wallet" style={{
+                display: 'block', background: 'var(--rose)', color: 'var(--ink)', padding: 10, textAlign: 'center',
                 fontSize: 9, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase',
-                cursor: loading !== null || data.balance < PACK_PRICE ? 'not-allowed' : 'pointer',
-                borderRadius: 2, border: 'none', fontFamily: 'var(--font-body)',
-                transition: 'opacity 0.15s',
-              }}
-            >
-              {loading === 'pack' ? 'Comprando...' : data.balance < PACK_PRICE ? 'Saldo insuf.' : 'Comprar'}
-            </button>
+                borderRadius: 2, textDecoration: 'none', fontFamily: 'var(--font-body)',
+              }}>
+                Recargar saldo
+              </Link>
+            ) : (
+              <button
+                onClick={handlePurchasePack}
+                disabled={loading !== null}
+                style={{
+                  background: loading !== null ? 'rgba(232,164,164,0.4)' : 'var(--rose)',
+                  color: 'var(--ink)', padding: 10, textAlign: 'center',
+                  fontSize: 9, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase',
+                  cursor: loading !== null ? 'not-allowed' : 'pointer',
+                  borderRadius: 2, border: 'none', fontFamily: 'var(--font-body)',
+                  transition: 'opacity 0.15s',
+                }}
+              >
+                {loading === 'pack' ? 'Comprando...' : 'Comprar'}
+              </button>
+            )}
           </div>
 
           {/* Foto única — blush */}
@@ -223,21 +233,31 @@ export function StoreClient({ initialData }: { initialData: StoreData }) {
               <div>· Probabilidades estándar</div>
               <div>· Pity counter: +1</div>
             </div>
-            <button
-              onClick={handlePurchaseSingle}
-              disabled={loading !== null || data.balance < SINGLE_PRICE}
-              style={{
-                background: loading !== null || data.balance < SINGLE_PRICE ? 'rgba(138,47,59,0.3)' : 'var(--wine)',
-                color: loading !== null || data.balance < SINGLE_PRICE ? 'rgba(42,21,25,0.5)' : 'var(--paper)',
-                padding: 10, textAlign: 'center',
+            {data.balance < SINGLE_PRICE ? (
+              <Link href="/wallet" style={{
+                display: 'block', background: 'var(--wine)', color: 'var(--paper)', padding: 10, textAlign: 'center',
                 fontSize: 9, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase',
-                cursor: loading !== null || data.balance < SINGLE_PRICE ? 'not-allowed' : 'pointer',
-                borderRadius: 2, border: 'none', fontFamily: 'var(--font-body)',
-                transition: 'opacity 0.15s',
-              }}
-            >
-              {loading === 'single' ? 'Comprando...' : data.balance < SINGLE_PRICE ? 'Saldo insuf.' : 'Comprar'}
-            </button>
+                borderRadius: 2, textDecoration: 'none', fontFamily: 'var(--font-body)',
+              }}>
+                Recargar saldo
+              </Link>
+            ) : (
+              <button
+                onClick={handlePurchaseSingle}
+                disabled={loading !== null}
+                style={{
+                  background: loading !== null ? 'rgba(138,47,59,0.3)' : 'var(--wine)',
+                  color: loading !== null ? 'rgba(42,21,25,0.5)' : 'var(--paper)',
+                  padding: 10, textAlign: 'center',
+                  fontSize: 9, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase',
+                  cursor: loading !== null ? 'not-allowed' : 'pointer',
+                  borderRadius: 2, border: 'none', fontFamily: 'var(--font-body)',
+                  transition: 'opacity 0.15s',
+                }}
+              >
+                {loading === 'single' ? 'Comprando...' : 'Comprar'}
+              </button>
+            )}
           </div>
         </div>
 
