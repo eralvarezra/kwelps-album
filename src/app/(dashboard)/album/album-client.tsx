@@ -44,6 +44,13 @@ const rarityLabels: Record<Rarity, string> = {
   LEGENDARY: 'Legendario',
 }
 
+const rarityColor: Record<Exclude<Rarity, 'ALL'>, string> = {
+  COMMON: '#c0b5a8',
+  RARE: '#8a7a6a',
+  EPIC: '#e8a4a4',
+  LEGENDARY: '#d4a356',
+}
+
 const nextRarity: Record<Exclude<Rarity, 'ALL'>, Exclude<Rarity, 'ALL'> | null> = {
   COMMON: 'RARE',
   RARE: 'EPIC',
@@ -51,7 +58,7 @@ const nextRarity: Record<Exclude<Rarity, 'ALL'>, Exclude<Rarity, 'ALL'> | null> 
   LEGENDARY: null,
 }
 
-function CollectionDropdown({
+function CollectionChips({
   collections,
   selectedId,
   onSelect,
@@ -60,73 +67,30 @@ function CollectionDropdown({
   selectedId: string | null
   onSelect: (id: string) => void
 }) {
-  const [isOpen, setIsOpen] = useState(false)
-  const dropdownRef = useRef<HTMLDivElement>(null)
-
-  const selectedCollection = collections.find((c) => c.id === selectedId)
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
+  if (collections.length <= 1) return null
   return (
-    <div className="relative" ref={dropdownRef}>
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm font-medium cursor-pointer hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500/50 flex items-center justify-between"
-      >
-        <div className="flex items-center gap-2">
-          <span>{selectedCollection?.name}</span>
-          {selectedCollection?.active && (
-            <span className="px-2 py-0.5 rounded text-xs font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-              Activa
+    <div style={{ padding: '0 16px 12px', display: 'flex', gap: 6, overflowX: 'auto' }}>
+      {collections.map(c => (
+        <button
+          key={c.id}
+          onClick={() => onSelect(c.id)}
+          style={{
+            flexShrink: 0, padding: '7px 12px', borderRadius: 2,
+            background: selectedId === c.id ? 'var(--ink)' : 'transparent',
+            color: selectedId === c.id ? 'var(--paper)' : 'var(--ink)',
+            border: selectedId === c.id ? 'none' : '0.5px solid rgba(26,20,24,0.2)',
+            fontSize: 10, fontWeight: 600, cursor: 'pointer',
+            fontFamily: 'var(--font-body)', transition: 'all 0.15s',
+          }}
+        >
+          {c.name}
+          {c.active && (
+            <span style={{ marginLeft: 6, fontSize: 7, fontWeight: 700, letterSpacing: '0.2em', color: selectedId === c.id ? 'var(--rose)' : 'var(--wine)', textTransform: 'uppercase' }}>
+              ·ACTIVA
             </span>
           )}
-        </div>
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
-        >
-          <path d="M6 9l6 6 6-6" />
-        </svg>
-      </button>
-
-      {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-gray-900 border border-white/10 rounded-xl overflow-hidden shadow-xl z-50">
-          {collections.map((col) => (
-            <button
-              key={col.id}
-              onClick={() => {
-                onSelect(col.id)
-                setIsOpen(false)
-              }}
-              className={`w-full px-4 py-2.5 text-sm font-medium flex items-center justify-between transition-colors ${
-                selectedId === col.id
-                  ? 'bg-purple-500/20 text-purple-300'
-                  : 'text-white hover:bg-white/5'
-              }`}
-            >
-              <span>{col.name}</span>
-              {col.active && (
-                <span className="px-2 py-0.5 rounded text-xs font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                  Activa
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-      )}
+        </button>
+      ))}
     </div>
   )
 }
@@ -139,27 +103,24 @@ export function AlbumClient({
   initialStats: AlbumStats | null
 }) {
   const [selectedCollection, setSelectedCollection] = useState<string | null>(
-    initialAlbum.find((c) => c.active)?.id || initialAlbum[0]?.id || null
+    initialAlbum.find(c => c.active)?.id ?? initialAlbum[0]?.id ?? null
   )
-  const [selectedRarity, setSelectedRarity] = useState<Rarity>('ALL')
-  const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null)
+  const [selectedRarity, setSelectedRarity]   = useState<Rarity>('ALL')
+  const [selectedPhoto, setSelectedPhoto]     = useState<Photo | null>(null)
   const [selectedForFusion, setSelectedForFusion] = useState<Photo[]>([])
-  const [fusing, setFusing] = useState(false)
-  const [fusionResult, setFusionResult] = useState<Photo | null>(null)
-  const [activeTab, setActiveTab] = useState<'book' | 'fusion' | 'legendary'>('book')
+  const [fusing, setFusing]                   = useState(false)
+  const [fusionResult, setFusionResult]       = useState<Photo | null>(null)
+  const [activeTab, setActiveTab]             = useState<'book' | 'fusion' | 'legendary'>('book')
 
-  // Legendary exchange state
   const [selectedLegendaries, setSelectedLegendaries] = useState<Photo[]>([])
   const [exchangingLegendary, setExchangingLegendary] = useState(false)
   const [legendaryExchangeResult, setLegendaryExchangeResult] = useState<Photo | null>(null)
-
-  // Legendary sell state
   const [sellingLegendary, setSellingLegendary] = useState(false)
   const [sellResult, setSellResult] = useState<{ photoId: string; newBalance: number } | null>(null)
 
   const { play: playFlipSound, muted, toggleMute } = useSoundEffect('/sounds/page-flip.mp3')
 
-  const collection = initialAlbum.find((c) => c.id === selectedCollection)
+  const collection = initialAlbum.find(c => c.id === selectedCollection)
 
   const filteredPhotos = useMemo(() => {
     if (!collection) return []
@@ -168,129 +129,79 @@ export function AlbumClient({
   }, [collection, selectedRarity])
 
   const toggleFusionSelection = (photo: Photo) => {
-    if (photo.quantity < 2) return // Necesita al menos 2 para poder fusionar (dejar 1)
+    if (photo.quantity < 2) return
     if (selectedForFusion.length >= 4) return
     if (selectedForFusion.length > 0 && selectedForFusion[0].rarity !== photo.rarity) return
-
-    const timesSelected = selectedForFusion.filter((p) => p.id === photo.id).length
-    // Solo puede seleccionar hasta (quantity - 1) para siempre dejar 1
+    const timesSelected = selectedForFusion.filter(p => p.id === photo.id).length
     if (timesSelected >= photo.quantity - 1) return
-
     setSelectedForFusion([...selectedForFusion, photo])
   }
 
-  const removeFromFusionSelection = (index: number) => {
+  const removeFromFusionSelection = (index: number) =>
     setSelectedForFusion(selectedForFusion.filter((_, i) => i !== index))
-  }
 
   const canFuse = selectedForFusion.length === 4 &&
-    selectedForFusion.every((p) => p.rarity === selectedForFusion[0].rarity) &&
+    selectedForFusion.every(p => p.rarity === selectedForFusion[0].rarity) &&
     nextRarity[selectedForFusion[0].rarity as Exclude<Rarity, 'ALL'>] !== null
 
   const handleFuse = async () => {
     if (!canFuse) return
-
     setFusing(true)
     try {
-      const result = await fuseCards(selectedForFusion.map((p) => p.id))
+      const result = await fuseCards(selectedForFusion.map(p => p.id))
       if (result.success && result.newPhoto) {
-        setFusionResult({
-          ...result.newPhoto,
-          quantity: 1,
-          obtainedAt: new Date(),
-        })
+        setFusionResult({ ...result.newPhoto, quantity: 1, obtainedAt: new Date() })
         setSelectedForFusion([])
-        // No recargar la página, esperar a que el usuario confirme
-      } else {
-        alert(result.error || 'Error al fusionar')
-      }
-    } catch {
-      alert('Error al fusionar las cartas')
-    } finally {
-      setFusing(false)
-    }
+      } else { alert(result.error || 'Error al fusionar') }
+    } catch { alert('Error al fusionar las cartas') }
+    finally { setFusing(false) }
   }
 
   const closeFusionResult = useCallback(() => {
     setFusionResult(null)
-    // Actualizar los datos localmente sin recargar la página
     window.location.reload()
   }, [])
 
-  // Legendary exchange functions
-  const totalLegendariesOwned = collection?.photos
-    .filter(p => p.rarity === 'LEGENDARY')
-    .reduce((sum, p) => sum + p.quantity, 0) || 0
-
-  const uniqueLegendariesOwned = collection?.photos
-    .filter(p => p.rarity === 'LEGENDARY' && p.quantity > 0).length || 0
-
-  const totalLegendariesInCollection = collection?.photos
-    .filter(p => p.rarity === 'LEGENDARY').length || 0
-
+  const totalLegendariesOwned = collection?.photos.filter(p => p.rarity === 'LEGENDARY').reduce((s, p) => s + p.quantity, 0) || 0
+  const uniqueLegendariesOwned = collection?.photos.filter(p => p.rarity === 'LEGENDARY' && p.quantity > 0).length || 0
+  const totalLegendariesInCollection = collection?.photos.filter(p => p.rarity === 'LEGENDARY').length || 0
   const missingLegendaries = totalLegendariesInCollection - uniqueLegendariesOwned
-
   const canExchangeLegendary = totalLegendariesOwned >= 5 && missingLegendaries > 0
-
-  // Can sell legendary if user has all legendaries and has duplicates
   const hasAllLegendaries = missingLegendaries === 0
-  const duplicateLegendaries = collection?.photos
-    .filter(p => p.rarity === 'LEGENDARY' && p.quantity > 1) || []
+  const duplicateLegendaries = collection?.photos.filter(p => p.rarity === 'LEGENDARY' && p.quantity > 1) || []
   const canSellLegendary = hasAllLegendaries && duplicateLegendaries.length > 0
 
   const handleSellLegendary = async (photoId: string) => {
     setSellingLegendary(true)
     try {
       const result = await sellLegendary(photoId)
-      if (result.success) {
-        setSellResult({ photoId, newBalance: result.newBalance || 0 })
-      } else {
-        alert(result.error || 'Error al vender')
-      }
-    } catch {
-      alert('Error al vender la carta')
-    } finally {
-      setSellingLegendary(false)
-    }
+      if (result.success) { setSellResult({ photoId, newBalance: result.newBalance || 0 }) }
+      else { alert(result.error || 'Error al vender') }
+    } catch { alert('Error al vender la carta') }
+    finally { setSellingLegendary(false) }
   }
 
   const toggleLegendarySelection = (photo: Photo) => {
-    if (photo.rarity !== 'LEGENDARY') return
-    if (selectedLegendaries.length >= 5) return
-    if (photo.quantity < 2) return // Necesita al menos 2 para poder dar 1 (dejar 1)
-
-    const timesSelected = selectedLegendaries.filter((p) => p.id === photo.id).length
-    // Solo puede seleccionar hasta (quantity - 1) para siempre dejar 1
+    if (photo.rarity !== 'LEGENDARY' || selectedLegendaries.length >= 5 || photo.quantity < 2) return
+    const timesSelected = selectedLegendaries.filter(p => p.id === photo.id).length
     if (timesSelected >= photo.quantity - 1) return
-
     setSelectedLegendaries([...selectedLegendaries, photo])
   }
 
-  const removeFromLegendarySelection = (index: number) => {
+  const removeFromLegendarySelection = (index: number) =>
     setSelectedLegendaries(selectedLegendaries.filter((_, i) => i !== index))
-  }
 
   const handleLegendaryExchange = async () => {
     if (selectedLegendaries.length !== 5) return
-
     setExchangingLegendary(true)
     try {
-      const result = await exchangeLegendary(selectedLegendaries.map((p) => p.id))
+      const result = await exchangeLegendary(selectedLegendaries.map(p => p.id))
       if (result.success && result.newPhoto) {
-        setLegendaryExchangeResult({
-          ...result.newPhoto,
-          quantity: 1,
-          obtainedAt: new Date(),
-        })
+        setLegendaryExchangeResult({ ...result.newPhoto, quantity: 1, obtainedAt: new Date() })
         setSelectedLegendaries([])
-      } else {
-        alert(result.error || 'Error al intercambiar')
-      }
-    } catch {
-      alert('Error al intercambiar las cartas')
-    } finally {
-      setExchangingLegendary(false)
-    }
+      } else { alert(result.error || 'Error al intercambiar') }
+    } catch { alert('Error al intercambiar las cartas') }
+    finally { setExchangingLegendary(false) }
   }
 
   const closeLegendaryExchangeResult = useCallback(() => {
@@ -298,92 +209,41 @@ export function AlbumClient({
     window.location.reload()
   }, [])
 
-  const getTotalCardsByRarity = (rarity: Exclude<Rarity, 'ALL'>): number => {
-    return collection?.photos
-      .filter((p) => p.rarity === rarity)
-      .reduce((sum, p) => sum + p.quantity, 0) || 0
-  }
+  const getTotalCardsByRarity = (rarity: Exclude<Rarity, 'ALL'>) =>
+    collection?.photos.filter(p => p.rarity === rarity).reduce((s, p) => s + p.quantity, 0) || 0
 
   const handlePhotoClick = useCallback((photo: AlbumCollection['photos'][0]) => {
-    if (photo.quantity > 0) {
-      setSelectedPhoto(photo)
-    }
+    if (photo.quantity > 0) setSelectedPhoto(photo)
   }, [])
 
   const handleNavigatePhoto = useCallback((photo: AlbumCollection['photos'][0]) => {
     setSelectedPhoto(photo)
   }, [])
 
-  const handleFlip = useCallback(() => {
-    playFlipSound()
-  }, [playFlipSound])
+  const handleFlip = useCallback(() => { playFlipSound() }, [playFlipSound])
 
   const byRarity = {
     LEGENDARY: collection?.photos.filter(p => p.rarity === 'LEGENDARY' && p.quantity > 0).length || 0,
-    EPIC: collection?.photos.filter(p => p.rarity === 'EPIC' && p.quantity > 0).length || 0,
-    RARE: collection?.photos.filter(p => p.rarity === 'RARE' && p.quantity > 0).length || 0,
-    COMMON: collection?.photos.filter(p => p.rarity === 'COMMON' && p.quantity > 0).length || 0,
+    EPIC:      collection?.photos.filter(p => p.rarity === 'EPIC'      && p.quantity > 0).length || 0,
+    RARE:      collection?.photos.filter(p => p.rarity === 'RARE'      && p.quantity > 0).length || 0,
+    COMMON:    collection?.photos.filter(p => p.rarity === 'COMMON'    && p.quantity > 0).length || 0,
   }
 
   if (initialAlbum.length === 0) {
     return (
-      <div className="min-h-screen bg-[#0F172A] flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-purple-500/20 to-purple-900/20 flex items-center justify-center">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-purple-400">
-              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-            </svg>
-          </div>
-          <h1 className="text-xl font-bold text-white mb-2">Sin Colecciones</h1>
-          <p className="text-gray-500">Vuelve más tarde por nuevas colecciones.</p>
+      <div style={{ padding: '80px 16px 16px', color: 'var(--ink)', textAlign: 'center' }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontStyle: 'italic', marginBottom: 12 }}>
+          Sin Colecciones
         </div>
+        <div style={{ fontSize: 11, color: 'rgba(26,20,24,0.55)' }}>Vuelve más tarde por nuevas colecciones.</div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#0F172A] flex flex-col overflow-x-hidden max-w-[100vw]">
-      {/* Top Bar */}
-      <div className="glass-dark border-b border-white/5">
-        <div className="flex items-center justify-between px-4 py-3">
-          {/* Logo */}
-          <Link href="/dashboard" className="flex items-center gap-2 group">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center">
-              <span className="text-white font-bold text-sm">K</span>
-            </div>
-            <span className="font-bold text-white hidden sm:block">Kwelps</span>
-          </Link>
+    <div style={{ minHeight: '100vh', background: 'var(--paper)', color: 'var(--ink)', display: 'flex', flexDirection: 'column' }}>
 
-          {/* Center Actions */}
-          <div className="flex items-center gap-3">
-            <Link
-              href="/store"
-              className="btn-primary flex items-center gap-2 text-sm"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-                <line x1="3" y1="6" x2="21" y2="6" />
-                <path d="M16 10a4 4 0 0 1-8 0" />
-              </svg>
-              <span className="hidden sm:inline">Comprar Pack</span>
-            </Link>
-          </div>
-
-          {/* Right: Profile */}
-          <Link href="/wallet" className="flex items-center gap-3 group">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 group-hover:bg-white/10 transition-colors">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-yellow-500">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 6v6l4 2" />
-              </svg>
-              <span className="text-sm font-medium text-white">Wallet</span>
-            </div>
-          </Link>
-        </div>
-      </div>
-
-      {/* Header */}
+      {/* BookHeader (existing component) */}
       <BookHeader
         collectionName={collection?.name || 'Mi Álbum'}
         collectionPrize={collection?.prize}
@@ -396,107 +256,81 @@ export function AlbumClient({
         isMuted={muted}
       />
 
-      {/* Tab Navigation */}
-      <div className="glass border-b border-white/5">
-        <div className="flex">
+      {/* Tab bar */}
+      <div style={{ borderBottom: '0.5px solid rgba(26,20,24,0.12)', display: 'flex' }}>
+        {([
+          { id: 'book',      label: 'Álbum' },
+          { id: 'fusion',    label: 'Fusión' },
+          { id: 'legendary', label: 'Legendario' },
+        ] as const).map(tab => (
           <button
-            onClick={() => setActiveTab('book')}
-            className={`flex-1 py-3 px-4 text-center text-sm font-medium transition-all ${
-              activeTab === 'book'
-                ? 'text-purple-400 bg-purple-500/10 border-b-2 border-purple-500'
-                : 'text-gray-500 hover:text-white hover:bg-white/5'
-            }`}
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            style={{
+              flex: 1, padding: '10px 4px',
+              fontSize: 8, fontWeight: 700, letterSpacing: '0.25em', textTransform: 'uppercase',
+              color: activeTab === tab.id ? 'var(--ink)' : 'rgba(26,20,24,0.4)',
+              background: 'transparent', border: 'none',
+              borderBottom: activeTab === tab.id
+                ? `1.5px solid ${tab.id === 'legendary' ? 'var(--rarity-legendary)' : 'var(--ink)'}`
+                : '1.5px solid transparent',
+              cursor: 'pointer', fontFamily: 'var(--font-body)',
+              transition: 'color 0.15s',
+            }}
           >
-            <span className="flex items-center justify-center gap-2">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-              </svg>
-              Álbum
-            </span>
+            {tab.label}
           </button>
-          <button
-            onClick={() => setActiveTab('fusion')}
-            className={`flex-1 py-3 px-4 text-center text-sm font-medium transition-all ${
-              activeTab === 'fusion'
-                ? 'text-purple-400 bg-purple-500/10 border-b-2 border-purple-500'
-                : 'text-gray-500 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            <span className="flex items-center justify-center gap-2">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-              </svg>
-              Fusión
-            </span>
-          </button>
-          <button
-            onClick={() => setActiveTab('legendary')}
-            className={`flex-1 py-3 px-4 text-center text-sm font-medium transition-all ${
-              activeTab === 'legendary'
-                ? 'text-yellow-400 bg-yellow-500/10 border-b-2 border-yellow-500'
-                : 'text-gray-500 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            <span className="flex items-center justify-center gap-2">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-              </svg>
-              Legendario
-            </span>
-          </button>
-        </div>
+        ))}
       </div>
 
-      {/* Collection Selector */}
+      {/* Collection selector */}
       {initialAlbum.length > 1 && (
-        <div className="px-4 py-3 bg-black/20 border-b border-white/5">
-          <CollectionDropdown
-            collections={initialAlbum}
-            selectedId={selectedCollection}
-            onSelect={setSelectedCollection}
-          />
-        </div>
+        <CollectionChips
+          collections={initialAlbum}
+          selectedId={selectedCollection}
+          onSelect={setSelectedCollection}
+        />
       )}
 
-      {/* Rarity Filters */}
+      {/* Rarity filter chips */}
       {activeTab === 'book' && (
-        <div className="px-4 py-2 bg-black/10">
-          <div className="flex flex-wrap gap-2 justify-center">
-            {RARITIES.map((rarity) => {
-              const count = collection?.photos.filter(p =>
-                rarity === 'ALL' || p.rarity === rarity
-              ).length || 0
-              const collected = collection?.photos.filter(p =>
-                (rarity === 'ALL' || p.rarity === rarity) && p.quantity > 0
-              ).length || 0
+        <div style={{ padding: '8px 16px 6px', display: 'flex', gap: 6, overflowX: 'auto' }}>
+          {RARITIES.map(rarity => {
+            const count     = collection?.photos.filter(p => rarity === 'ALL' || p.rarity === rarity).length || 0
+            const collected = collection?.photos.filter(p => (rarity === 'ALL' || p.rarity === rarity) && p.quantity > 0).length || 0
+            const active    = selectedRarity === rarity
+            const dot       = rarity !== 'ALL' ? rarityColor[rarity] : undefined
 
-              return (
-                <button
-                  key={rarity}
-                  onClick={() => setSelectedRarity(rarity)}
-                  className={`filter-chip px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap ${
-                    selectedRarity === rarity ? 'active' : ''
-                  } ${
-                    selectedRarity === rarity && rarity === 'LEGENDARY' ? '!bg-yellow-500/20 !border-yellow-500/50 !text-yellow-400' :
-                    selectedRarity === rarity && rarity === 'EPIC' ? '!bg-purple-500/20 !border-purple-500/50 !text-purple-400' :
-                    selectedRarity === rarity && rarity === 'RARE' ? '!bg-blue-500/20 !border-blue-500/50 !text-blue-400' : ''
-                  }`}
-                >
-                  {rarityLabels[rarity]}
-                  <span className="ml-1 opacity-60">({collected}/{count})</span>
-                </button>
-              )
-            })}
-          </div>
+            return (
+              <button
+                key={rarity}
+                onClick={() => setSelectedRarity(rarity)}
+                style={{
+                  flexShrink: 0, padding: '5px 10px', borderRadius: 100,
+                  background: active ? 'var(--ink)' : 'transparent',
+                  color: active ? 'var(--paper)' : 'var(--ink)',
+                  border: active ? 'none' : '0.5px solid rgba(26,20,24,0.2)',
+                  fontSize: 10, cursor: 'pointer', fontWeight: 500,
+                  display: 'flex', gap: 5, alignItems: 'center',
+                  fontFamily: 'var(--font-body)', transition: 'all 0.15s',
+                }}
+              >
+                {dot && <span style={{ width: 5, height: 5, borderRadius: '50%', background: dot, flexShrink: 0 }} />}
+                {rarityLabels[rarity]}
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, opacity: 0.7 }}>{collected}/{count}</span>
+              </button>
+            )
+          })}
         </div>
       )}
 
-      {/* Content */}
-      <div className="flex-1 overflow-hidden">
+      {/* Content area */}
+      <div style={{ flex: 1, overflow: 'hidden' }}>
+
+        {/* Book tab */}
         {activeTab === 'book' && collection && (
-          <div className="h-full flex items-center justify-center overflow-hidden">
-            <div className="w-full flex items-center justify-center" style={{ maxWidth: '100vw' }}>
+          <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+            <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', maxWidth: '100vw' }}>
               <BookSpread
                 photos={filteredPhotos}
                 photosPerPage={6}
@@ -507,39 +341,32 @@ export function AlbumClient({
           </div>
         )}
 
+        {/* Fusion tab */}
         {activeTab === 'fusion' && collection && (
-          <div className="p-4 space-y-4 overflow-y-auto h-full">
-            {/* Fusion Info */}
-            <div className="glass rounded-2xl p-5">
-              <h3 className="text-lg font-bold text-white mb-2">Fusionar Cartas</h3>
-              <p className="text-gray-400 text-sm mb-2">
-                Combina 4 cartas de la misma rareza para obtener una de mayor rareza
-              </p>
-              <p className="text-amber-400/80 text-xs mb-5 flex items-center gap-1">
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Solo puedes fusionar cartas del mismo catálogo. El resultado será de este mismo catálogo.
-              </p>
+          <div style={{ padding: 16, overflowY: 'auto', height: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-              {/* Fusion Rules */}
-              <div className="grid grid-cols-3 gap-3 mb-5">
-                {(['COMMON', 'RARE', 'EPIC'] as const).map((rarity) => {
-                  const count = getTotalCardsByRarity(rarity)
+            {/* Info card */}
+            <div style={{ padding: 14, background: 'var(--paper-card)', border: '0.5px solid rgba(26,20,24,0.12)', borderRadius: 2 }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontStyle: 'italic', marginBottom: 6 }}>Fusionar Cartas</div>
+              <div style={{ fontSize: 10, color: 'rgba(26,20,24,0.6)', lineHeight: 1.5, marginBottom: 4 }}>
+                Combina 4 cartas de la misma rareza para obtener una de mayor rareza.
+              </div>
+              <div style={{ fontSize: 9, color: 'var(--wine)', lineHeight: 1.4, marginBottom: 14 }}>
+                Solo puedes fusionar cartas del mismo catálogo.
+              </div>
+
+              {/* Rules */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginBottom: 14 }}>
+                {(['COMMON', 'RARE', 'EPIC'] as const).map(r => {
+                  const count = getTotalCardsByRarity(r)
                   const fusions = Math.floor(count / 4)
                   return (
-                    <div key={rarity} className={`rounded-xl p-3 ${
-                      rarity === 'EPIC' ? 'bg-purple-500/10 border border-purple-500/20' :
-                      rarity === 'RARE' ? 'bg-blue-500/10 border border-blue-500/20' :
-                      'bg-gray-500/10 border border-gray-500/20'
-                    }`}>
-                      <p className="text-xs text-gray-400 mb-1">4 {rarityLabels[rarity]}</p>
-                      <p className="text-sm text-white font-medium">
-                        → {nextRarity[rarity] ? rarityLabels[nextRarity[rarity]!] : 'N/A'}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-2">
-                        {count} cartas ({fusions} fusión{fusions !== 1 ? 'es' : ''})
-                      </p>
+                    <div key={r} style={{ padding: '8px 6px', border: `0.5px solid ${rarityColor[r]}`, borderTop: `2px solid ${rarityColor[r]}`, borderRadius: 2 }}>
+                      <div style={{ fontSize: 8, color: 'rgba(26,20,24,0.55)', marginBottom: 2 }}>4× {rarityLabels[r]}</div>
+                      <div style={{ fontSize: 11, fontWeight: 700 }}>→ {nextRarity[r] ? rarityLabels[nextRarity[r]!] : '—'}</div>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'rgba(26,20,24,0.5)', marginTop: 4 }}>
+                        {count} cartas · {fusions} fusión{fusions !== 1 ? 'es' : ''}
+                      </div>
                     </div>
                   )
                 })}
@@ -547,29 +374,147 @@ export function AlbumClient({
 
               {/* Selection */}
               {selectedForFusion.length > 0 && (
-                <div className="mb-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-gray-400">
-                      Seleccionadas: {selectedForFusion.length}/4
-                    </span>
-                    {canFuse && (
-                      <span className="text-xs text-emerald-400 font-medium">¡Listo para fusionar!</span>
-                    )}
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span style={{ fontSize: 9, color: 'rgba(26,20,24,0.6)' }}>Seleccionadas: {selectedForFusion.length}/4</span>
+                    {canFuse && <span style={{ fontSize: 9, color: 'var(--wine)', fontWeight: 700 }}>¡Listo!</span>}
                   </div>
-                  <div className="flex gap-2">
-                    {selectedForFusion.map((photo, index) => (
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {selectedForFusion.map((photo, idx) => (
                       <button
-                        key={`${photo.id}-${index}`}
-                        onClick={() => removeFromFusionSelection(index)}
-                        className={`relative w-14 h-14 rounded-lg overflow-hidden border-2 hover:opacity-80 transition-opacity ${
-                          photo.rarity === 'EPIC' ? 'border-purple-500/50 card-glow-epic' :
-                          photo.rarity === 'RARE' ? 'border-blue-500/50 card-glow-rare' :
-                          'border-gray-500/50 card-glow-common'
-                        }`}
+                        key={`${photo.id}-${idx}`}
+                        onClick={() => removeFromFusionSelection(idx)}
+                        style={{ position: 'relative', width: 48, height: 48, borderRadius: 2, overflow: 'hidden', border: `1px solid ${rarityColor[photo.rarity]}`, cursor: 'pointer', background: 'none', padding: 0 }}
                       >
-                        <img src={photo.thumbnailUrl || photo.url} alt="" className="w-full h-full object-cover" />
-                        <span className="absolute -top-1 -right-1 w-5 h-5 bg-purple-500 rounded-full text-xs text-white flex items-center justify-center font-bold">
-                          {index + 1}
+                        <img src={photo.thumbnailUrl || photo.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <span style={{ position: 'absolute', top: -2, right: -2, width: 14, height: 14, background: 'var(--wine)', color: 'var(--paper)', borderRadius: '50%', fontSize: 8, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {idx + 1}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => setSelectedForFusion([])}
+                  disabled={selectedForFusion.length === 0}
+                  style={{ flex: 1, padding: '10px', border: '0.5px solid rgba(26,20,24,0.2)', borderRadius: 2, background: 'transparent', color: 'rgba(26,20,24,0.5)', fontSize: 9, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', cursor: selectedForFusion.length === 0 ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)' }}
+                >
+                  Limpiar
+                </button>
+                <button
+                  onClick={handleFuse}
+                  disabled={!canFuse || fusing}
+                  style={{ flex: 1, padding: '10px', background: !canFuse || fusing ? 'rgba(26,20,24,0.15)' : 'var(--ink)', color: !canFuse || fusing ? 'rgba(26,20,24,0.4)' : 'var(--paper)', borderRadius: 2, border: 'none', fontSize: 9, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', cursor: !canFuse || fusing ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)' }}
+                >
+                  {fusing ? 'Fusionando...' : 'Fusionar'}
+                </button>
+              </div>
+            </div>
+
+            {/* Cards grid */}
+            <div style={{ padding: 12, background: 'var(--paper-card)', border: '0.5px solid rgba(26,20,24,0.12)', borderRadius: 2 }}>
+              <div style={{ fontSize: 8, color: 'rgba(26,20,24,0.5)', marginBottom: 10, lineHeight: 1.4 }}>
+                Toca las cartas para seleccionarlas. Necesitas al menos 2 copias de cada tipo.
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
+                {collection.photos
+                  .filter(p => p.quantity > 0 && p.rarity !== 'LEGENDARY')
+                  .map(photo => {
+                    const timesSelected   = selectedForFusion.filter(p => p.id === photo.id).length
+                    const canSelectRarity = selectedForFusion.length === 0 || selectedForFusion[0].rarity === photo.rarity
+                    const canSelectMore   = timesSelected < photo.quantity - 1
+                    const isDisabled      = photo.quantity < 2 || !canSelectRarity || !canSelectMore || selectedForFusion.length >= 4
+
+                    return (
+                      <button
+                        key={photo.id}
+                        onClick={() => toggleFusionSelection(photo)}
+                        disabled={isDisabled}
+                        style={{
+                          position: 'relative', aspectRatio: '1', borderRadius: 2, overflow: 'hidden', padding: 0, border: `1px solid ${timesSelected > 0 ? 'var(--wine)' : 'transparent'}`,
+                          opacity: isDisabled ? 0.4 : 1, cursor: isDisabled ? 'not-allowed' : 'pointer',
+                          outline: timesSelected > 0 ? `2px solid var(--wine)` : 'none',
+                        }}
+                      >
+                        <img src={photo.thumbnailUrl || photo.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <span style={{ position: 'absolute', top: 2, right: 2, background: photo.quantity >= 2 ? 'var(--wine)' : 'rgba(26,20,24,0.5)', color: 'var(--paper)', fontSize: 7, fontWeight: 700, padding: '1px 3px', borderRadius: 1 }}>
+                          ×{photo.quantity}
+                        </span>
+                        {timesSelected > 0 && (
+                          <div style={{ position: 'absolute', inset: 0, background: 'rgba(138,47,59,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <span style={{ color: 'var(--paper)', fontWeight: 700, fontSize: 14 }}>{timesSelected}</span>
+                          </div>
+                        )}
+                      </button>
+                    )
+                  })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Legendary tab */}
+        {activeTab === 'legendary' && collection && (
+          <div style={{ padding: 16, overflowY: 'auto', height: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+            {/* Info card */}
+            <div style={{ padding: 14, background: 'var(--paper-card)', border: '0.5px solid rgba(26,20,24,0.12)', borderRadius: 2 }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontStyle: 'italic', marginBottom: 6 }}>Intercambio Legendario</div>
+              <div style={{ fontSize: 10, color: 'rgba(26,20,24,0.6)', lineHeight: 1.5, marginBottom: 14 }}>
+                Intercambia 5 cartas legendarias por una que no tengas de esta colección.
+              </div>
+
+              {/* Stats */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginBottom: 14 }}>
+                {[
+                  { label: 'Tus Leg.', value: String(totalLegendariesOwned) },
+                  { label: 'Únicas',   value: `${uniqueLegendariesOwned}/${totalLegendariesInCollection}` },
+                  { label: 'Faltantes', value: String(missingLegendaries) },
+                ].map((s, i) => (
+                  <div key={i} style={{ padding: '8px 6px', borderTop: `2px solid var(--rarity-legendary)`, border: `0.5px solid rgba(212,163,86,0.3)`, borderRadius: 2 }}>
+                    <div style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(26,20,24,0.5)', marginBottom: 3 }}>{s.label}</div>
+                    <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontStyle: 'italic', color: 'var(--rarity-legendary)', lineHeight: 1 }}>{s.value}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Status messages */}
+              {totalLegendariesOwned < 5 && !canSellLegendary && (
+                <div style={{ padding: '8px 10px', background: 'rgba(212,163,86,0.08)', border: '0.5px solid rgba(212,163,86,0.3)', borderRadius: 2, fontSize: 9, color: 'var(--rarity-legendary)', marginBottom: 12, lineHeight: 1.4 }}>
+                  Necesitas al menos 5 cartas legendarias para intercambiar.
+                </div>
+              )}
+              {totalLegendariesOwned >= 5 && missingLegendaries === 0 && !canSellLegendary && (
+                <div style={{ padding: '8px 10px', background: 'rgba(26,20,24,0.04)', border: '0.5px solid rgba(26,20,24,0.12)', borderRadius: 2, fontSize: 9, color: 'var(--ink)', marginBottom: 12, lineHeight: 1.4 }}>
+                  ¡Felicidades! Ya tienes todas las legendarias de esta colección.
+                </div>
+              )}
+              {canSellLegendary && (
+                <div style={{ padding: '8px 10px', background: 'rgba(26,155,80,0.08)', border: '0.5px solid rgba(26,155,80,0.2)', borderRadius: 2, fontSize: 9, color: '#1a7a40', marginBottom: 12, lineHeight: 1.4 }}>
+                  Tienes legendarias repetidas. Véndelas por $1 cada una.
+                </div>
+              )}
+
+              {/* Selection */}
+              {missingLegendaries > 0 && selectedLegendaries.length > 0 && (
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span style={{ fontSize: 9, color: 'rgba(26,20,24,0.6)' }}>Seleccionadas: {selectedLegendaries.length}/5</span>
+                    {selectedLegendaries.length === 5 && <span style={{ fontSize: 9, color: 'var(--wine)', fontWeight: 700 }}>¡Listo!</span>}
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {selectedLegendaries.map((photo, idx) => (
+                      <button
+                        key={`leg-${photo.id}-${idx}`}
+                        onClick={() => removeFromLegendarySelection(idx)}
+                        style={{ position: 'relative', width: 48, height: 48, borderRadius: 2, overflow: 'hidden', border: `1px solid var(--rarity-legendary)`, cursor: 'pointer', background: 'none', padding: 0 }}
+                      >
+                        <img src={photo.thumbnailUrl || photo.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <span style={{ position: 'absolute', top: -2, right: -2, width: 14, height: 14, background: 'var(--rarity-legendary)', color: 'var(--ink)', borderRadius: '50%', fontSize: 7, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {idx + 1}
                         </span>
                       </button>
                     ))}
@@ -578,78 +523,76 @@ export function AlbumClient({
               )}
 
               {/* Actions */}
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setSelectedForFusion([])}
-                  disabled={selectedForFusion.length === 0}
-                  className="flex-1 py-2.5 rounded-xl bg-white/5 text-gray-400 font-medium hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Limpiar
-                </button>
-                <button
-                  onClick={handleFuse}
-                  disabled={!canFuse || fusing}
-                  className="flex-1 btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {fusing ? 'Fusionando...' : 'Fusionar Cartas'}
-                </button>
-              </div>
+              {missingLegendaries > 0 ? (
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={() => setSelectedLegendaries([])}
+                    disabled={selectedLegendaries.length === 0}
+                    style={{ flex: 1, padding: '10px', border: '0.5px solid rgba(26,20,24,0.2)', borderRadius: 2, background: 'transparent', color: 'rgba(26,20,24,0.5)', fontSize: 9, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', cursor: selectedLegendaries.length === 0 ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)' }}
+                  >
+                    Limpiar
+                  </button>
+                  <button
+                    onClick={handleLegendaryExchange}
+                    disabled={selectedLegendaries.length !== 5 || exchangingLegendary}
+                    style={{ flex: 1, padding: '10px', background: selectedLegendaries.length === 5 && !exchangingLegendary ? 'var(--rarity-legendary)' : 'rgba(212,163,86,0.2)', color: 'var(--ink)', borderRadius: 2, border: 'none', fontSize: 9, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', cursor: selectedLegendaries.length !== 5 || exchangingLegendary ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)' }}
+                  >
+                    {exchangingLegendary ? 'Intercambiando...' : 'Intercambiar'}
+                  </button>
+                </div>
+              ) : canSellLegendary && (
+                <div style={{ fontSize: 9, color: 'rgba(26,20,24,0.55)', textAlign: 'center' }}>
+                  Selecciona una carta repetida para venderla
+                </div>
+              )}
             </div>
 
-            {/* Cards Grid */}
-            <div className="glass rounded-2xl p-4">
-              <p className="text-gray-500 text-xs mb-3">
-                Toca las cartas para seleccionarlas (mínimo 2 de cada tipo para fusionar)
-              </p>
-              <p className="text-gray-600 text-xs mb-4 flex items-center gap-1">
-                <svg className="w-3 h-3 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-                Las cartas bloqueadas tienen solo 1 copia — necesitas mínimo 2 para poder fusionar sin quedarte en 0
-              </p>
-              <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+            {/* Cards grid */}
+            <div style={{ padding: 12, background: 'var(--paper-card)', border: '0.5px solid rgba(26,20,24,0.12)', borderRadius: 2 }}>
+              <div style={{ fontSize: 8, color: 'rgba(26,20,24,0.5)', marginBottom: 10 }}>
+                {missingLegendaries > 0 ? 'Selecciona 5 cartas legendarias para intercambiar' : 'Haz clic en una carta repetida para venderla por $1'}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
                 {collection.photos
-                  .filter(p => p.quantity > 0 && p.rarity !== 'LEGENDARY')
-                  .map((photo) => {
-                    const timesSelected = selectedForFusion.filter(p => p.id === photo.id).length
-                    const canSelectRarity = selectedForFusion.length === 0 || selectedForFusion[0].rarity === photo.rarity
-                    const canSelectMore = timesSelected < photo.quantity - 1 // Dejar siempre 1
-                    const isDisabled = photo.quantity < 2 || !canSelectRarity || !canSelectMore || selectedForFusion.length >= 4
+                  .filter(p => p.rarity === 'LEGENDARY' && p.quantity > 0)
+                  .map(photo => {
+                    const isDuplicate = photo.quantity > 1
+
+                    if (missingLegendaries > 0) {
+                      const timesSelected = selectedLegendaries.filter(p => p.id === photo.id).length
+                      const canSelectMore = timesSelected < photo.quantity - 1
+                      const isDisabled    = !canSelectMore || selectedLegendaries.length >= 5
+
+                      return (
+                        <button
+                          key={photo.id}
+                          onClick={() => toggleLegendarySelection(photo)}
+                          disabled={isDisabled}
+                          style={{ position: 'relative', aspectRatio: '1', borderRadius: 2, overflow: 'hidden', padding: 0, border: `1px solid ${timesSelected > 0 ? 'var(--rarity-legendary)' : 'rgba(212,163,86,0.3)'}`, opacity: isDisabled ? 0.4 : 1, cursor: isDisabled ? 'not-allowed' : 'pointer' }}
+                        >
+                          <img src={photo.thumbnailUrl || photo.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <span style={{ position: 'absolute', top: 2, right: 2, background: 'var(--rarity-legendary)', color: 'var(--ink)', fontSize: 7, fontWeight: 700, padding: '1px 3px', borderRadius: 1 }}>×{photo.quantity}</span>
+                          {timesSelected > 0 && (
+                            <div style={{ position: 'absolute', inset: 0, background: 'rgba(212,163,86,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <span style={{ color: 'var(--ink)', fontWeight: 700, fontSize: 14 }}>{timesSelected}</span>
+                            </div>
+                          )}
+                        </button>
+                      )
+                    }
 
                     return (
                       <button
                         key={photo.id}
-                        onClick={() => toggleFusionSelection(photo)}
-                        disabled={isDisabled}
-                        className={`relative aspect-square rounded-lg overflow-hidden transition-all ${
-                          timesSelected > 0 ? 'ring-2 ring-purple-500' : ''
-                        } ${
-                          photo.rarity === 'EPIC' ? 'card-glow-epic' :
-                          photo.rarity === 'RARE' ? 'card-glow-rare' :
-                          'card-glow-common'
-                        } ${photo.quantity < 2 ? 'opacity-40 cursor-not-allowed' : ''}
-                        ${isDisabled && photo.quantity >= 2 ? 'opacity-50 cursor-not-allowed' : ''}
-                        ${!isDisabled && photo.quantity >= 2 ? 'hover:scale-105' : ''}`}
+                        onClick={() => isDuplicate && handleSellLegendary(photo.id)}
+                        disabled={!isDuplicate || sellingLegendary}
+                        style={{ position: 'relative', aspectRatio: '1', borderRadius: 2, overflow: 'hidden', padding: 0, border: `1px solid rgba(212,163,86,0.3)`, opacity: !isDuplicate ? 0.4 : 1, cursor: !isDuplicate || sellingLegendary ? 'not-allowed' : 'pointer' }}
                       >
-                        <img src={photo.thumbnailUrl || photo.url} alt="" className="w-full h-full object-cover" />
-                        {/* Cantidad de cartas */}
-                        <span className={`absolute top-0.5 right-0.5 text-white text-xs font-bold px-1 rounded ${
-                          photo.quantity >= 2 ? 'bg-orange-500' : 'bg-gray-600'
-                        }`}>
-                          ×{photo.quantity}
-                        </span>
-                        {/* Indicador de selección */}
-                        {timesSelected > 0 && (
-                          <div className="absolute inset-0 bg-purple-500/30 flex items-center justify-center">
-                            <span className="text-white font-bold">{timesSelected}</span>
-                          </div>
-                        )}
-                        {/* Indicador de que no se puede fusionar */}
-                        {photo.quantity < 2 && (
-                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                            <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                            </svg>
+                        <img src={photo.thumbnailUrl || photo.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <span style={{ position: 'absolute', top: 2, right: 2, background: 'var(--rarity-legendary)', color: 'var(--ink)', fontSize: 7, fontWeight: 700, padding: '1px 3px', borderRadius: 1 }}>×{photo.quantity}</span>
+                        {isDuplicate && (
+                          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(26,155,80,0.85)', textAlign: 'center', padding: '2px 0' }}>
+                            <span style={{ fontSize: 8, color: '#fff', fontWeight: 700 }}>+$1</span>
                           </div>
                         )}
                       </button>
@@ -671,314 +614,58 @@ export function AlbumClient({
         />
       )}
 
-      {/* Fusion Result Modal */}
+      {/* Fusion result modal */}
       {fusionResult && (
-        <div
-          className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-        >
-          <div className="glass rounded-3xl max-w-sm w-full p-8 text-center" onClick={e => e.stopPropagation()}>
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white">
-                <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                <path d="M2 17l10 5 10-5" />
-                <path d="M2 12l10 5 10-5" />
-              </svg>
-            </div>
-            <h2 className="text-2xl font-bold text-white mb-2">¡Fusión Completada!</h2>
-            <p className="text-gray-400 mb-2">Obtuviste una nueva carta</p>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(12,9,11,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 20 }}>
+          <div style={{ background: 'var(--ink)', borderRadius: 2, maxWidth: 320, width: '100%', padding: '24px 20px', textAlign: 'center', border: '0.5px solid rgba(250,247,242,0.1)' }}>
+            <div style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'var(--rose)', marginBottom: 8 }}>Fusión completada</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontStyle: 'italic', color: 'var(--paper)', lineHeight: 1, marginBottom: 6 }}>¡Nueva carta!</div>
             {fusionResult.collectionName && (
-              <p className="text-xs text-amber-400/80 mb-4">
-                del catálogo: {fusionResult.collectionName}
-              </p>
+              <div style={{ fontSize: 9, color: 'rgba(250,247,242,0.5)', marginBottom: 16 }}>del catálogo: {fusionResult.collectionName}</div>
             )}
-
-            <div className={`relative mx-auto w-40 h-40 mb-6 rounded-2xl overflow-hidden border-2 ${
-              fusionResult.rarity === 'LEGENDARY' ? 'border-yellow-500/50 card-glow-legendary' :
-              fusionResult.rarity === 'EPIC' ? 'border-purple-500/50 card-glow-epic' :
-              'border-blue-500/50 card-glow-rare'
-            }`}>
-              <img src={fusionResult.thumbnailUrl || fusionResult.url} alt="" className="w-full h-full object-cover" />
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
-                <span className={`text-sm font-bold ${
-                  fusionResult.rarity === 'LEGENDARY' ? 'text-yellow-400' :
-                  fusionResult.rarity === 'EPIC' ? 'text-purple-400' :
-                  'text-blue-400'
-                }`}>{rarityLabels[fusionResult.rarity]}</span>
-              </div>
+            <div style={{ margin: '0 auto 20px', width: 120, height: 160, borderRadius: 2, overflow: 'hidden', border: `1px solid ${rarityColor[fusionResult.rarity]}` }}>
+              <img src={fusionResult.thumbnailUrl || fusionResult.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={closeFusionResult}
-                className="flex-1 py-2.5 rounded-xl bg-white/10 text-white font-medium hover:bg-white/20 transition-colors"
-              >
-                Ver Álbum
-              </button>
-              <button
-                onClick={() => setFusionResult(null)}
-                className="flex-1 btn-primary"
-              >
-                Nueva Fusión
-              </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={closeFusionResult} style={{ flex: 1, padding: '11px', background: 'transparent', border: '0.5px solid rgba(250,247,242,0.2)', color: 'rgba(250,247,242,0.7)', fontSize: 9, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', borderRadius: 2, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Ver Álbum</button>
+              <button onClick={() => setFusionResult(null)} style={{ flex: 1, padding: '11px', background: 'var(--rose)', color: 'var(--ink)', border: 'none', fontSize: 9, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', borderRadius: 2, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Nueva Fusión</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Legendary Exchange Tab */}
-      {activeTab === 'legendary' && collection && (
-        <div className="p-4 space-y-4 overflow-y-auto h-full">
-          {/* Exchange Info */}
-          <div className="glass rounded-2xl p-5">
-            <h3 className="text-lg font-bold text-white mb-2">Intercambio Legendario</h3>
-            <p className="text-gray-400 text-sm mb-4">
-              Intercambia 5 cartas legendarias por una carta legendaria que no tengas de esta colección
-            </p>
-
-            {/* Stats */}
-            <div className="grid grid-cols-3 gap-3 mb-5">
-              <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3">
-                <p className="text-xs text-gray-400 mb-1">Tus Legendarias</p>
-                <p className="text-xl text-white font-bold">{totalLegendariesOwned}</p>
-              </div>
-              <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3">
-                <p className="text-xs text-gray-400 mb-1">Únicas</p>
-                <p className="text-xl text-white font-bold">{uniqueLegendariesOwned}/{totalLegendariesInCollection}</p>
-              </div>
-              <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3">
-                <p className="text-xs text-gray-400 mb-1">Faltantes</p>
-                <p className="text-xl text-white font-bold">{missingLegendaries}</p>
-              </div>
-            </div>
-
-            {/* Warning if not enough */}
-            {totalLegendariesOwned < 5 && !canSellLegendary && (
-              <div className="px-4 py-3 bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-yellow-400 text-sm mb-4">
-                Necesitas al menos 5 cartas legendarias para intercambiar
-              </div>
-            )}
-
-            {totalLegendariesOwned >= 5 && missingLegendaries === 0 && !canSellLegendary && (
-              <div className="px-4 py-3 bg-green-500/10 border border-green-500/30 rounded-xl text-green-400 text-sm mb-4">
-                ¡Felicidades! Ya tienes todas las legendarias de esta colección
-              </div>
-            )}
-
-            {/* Sell option when user has all legendaries with duplicates */}
-            {canSellLegendary && (
-              <div className="px-4 py-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-400 text-sm mb-4">
-                💰 Tienes legendarias repetidas. Véndelas por $1 cada una.
-              </div>
-            )}
-
-            {/* Selection for exchange (only when missing legendaries) */}
-            {missingLegendaries > 0 && selectedLegendaries.length > 0 && (
-              <div className="mb-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-400">
-                    Seleccionadas: {selectedLegendaries.length}/5
-                  </span>
-                  {selectedLegendaries.length === 5 && (
-                    <span className="text-xs text-emerald-400 font-medium">¡Listo para intercambiar!</span>
-                  )}
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                  {selectedLegendaries.map((photo, index) => (
-                    <button
-                      key={`legendary-${photo.id}-${index}`}
-                      onClick={() => removeFromLegendarySelection(index)}
-                      className="relative w-14 h-14 rounded-lg overflow-hidden border-2 border-yellow-500/50 hover:opacity-80 transition-opacity card-glow-legendary"
-                    >
-                      <img src={photo.thumbnailUrl || photo.url} alt="" className="w-full h-full object-cover" />
-                      <span className="absolute -top-1 -right-1 w-5 h-5 bg-yellow-500 rounded-full text-xs text-white flex items-center justify-center font-bold">
-                        {index + 1}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Actions */}
-            {missingLegendaries > 0 ? (
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setSelectedLegendaries([])}
-                  disabled={selectedLegendaries.length === 0}
-                  className="flex-1 py-2.5 rounded-xl bg-white/5 text-gray-400 font-medium hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Limpiar
-                </button>
-                <button
-                  onClick={handleLegendaryExchange}
-                  disabled={selectedLegendaries.length !== 5 || exchangingLegendary}
-                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-600 text-white font-medium shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                  {exchangingLegendary ? 'Intercambiando...' : 'Intercambiar'}
-                </button>
-              </div>
-            ) : canSellLegendary && (
-              <div className="text-center py-2">
-                <p className="text-gray-400 text-sm mb-3">
-                  Selecciona una carta legendaria repetida para vender
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Cards Grid */}
-          <div className="glass rounded-2xl p-4">
-            {missingLegendaries > 0 ? (
-              <p className="text-gray-500 text-xs mb-3">
-                Selecciona 5 cartas legendarias para intercambiar
-              </p>
-            ) : canSellLegendary && (
-              <p className="text-emerald-400/80 text-xs mb-3">
-                💰 Haz clic en una carta repetida para venderla por $1
-              </p>
-            )}
-            {totalLegendariesOwned >= 5 && missingLegendaries > 0 && selectedLegendaries.length < 5 && (
-              <p className="text-yellow-400/80 text-xs mb-4">
-                ⚡ Recibirás una carta legendaria que aún no tienes de esta colección
-              </p>
-            )}
-            <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-              {collection.photos
-                .filter(p => p.rarity === 'LEGENDARY' && p.quantity > 0)
-                .map((photo) => {
-                  const isDuplicate = photo.quantity > 1
-
-                  // Exchange mode (missing legendaries)
-                  if (missingLegendaries > 0) {
-                    const timesSelected = selectedLegendaries.filter(p => p.id === photo.id).length
-                    const canSelectMore = timesSelected < photo.quantity - 1 // Must leave 1
-                    const isDisabled = !canSelectMore || selectedLegendaries.length >= 5
-
-                    return (
-                      <button
-                        key={photo.id}
-                        onClick={() => toggleLegendarySelection(photo)}
-                        disabled={isDisabled}
-                        className={`relative aspect-square rounded-lg overflow-hidden transition-all ${
-                          timesSelected > 0 ? 'ring-2 ring-yellow-500' : ''
-                        } card-glow-legendary ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105'}`}
-                      >
-                        <img src={photo.thumbnailUrl || photo.url} alt="" className="w-full h-full object-cover" />
-                        <span className="absolute top-0.5 right-0.5 text-white text-xs font-bold px-1 rounded bg-yellow-500">
-                          ×{photo.quantity}
-                        </span>
-                        {timesSelected > 0 && (
-                          <div className="absolute inset-0 bg-yellow-500/30 flex items-center justify-center">
-                            <span className="text-white font-bold">{timesSelected}</span>
-                          </div>
-                        )}
-                      </button>
-                    )
-                  }
-
-                  // Sell mode (has all legendaries)
-                  return (
-                    <button
-                      key={photo.id}
-                      onClick={() => isDuplicate && handleSellLegendary(photo.id)}
-                      disabled={!isDuplicate || sellingLegendary}
-                      className={`relative aspect-square rounded-lg overflow-hidden transition-all card-glow-legendary ${
-                        isDuplicate ? 'hover:scale-105 cursor-pointer' : 'opacity-50 cursor-not-allowed'
-                      } ${sellingLegendary ? 'opacity-70' : ''}`}
-                    >
-                      <img src={photo.thumbnailUrl || photo.url} alt="" className="w-full h-full object-cover" />
-                      <span className="absolute top-0.5 right-0.5 text-white text-xs font-bold px-1 rounded bg-yellow-500">
-                        ×{photo.quantity}
-                      </span>
-                      {isDuplicate && (
-                        <div className="absolute bottom-0 left-0 right-0 bg-emerald-500/80 text-center py-0.5">
-                          <span className="text-xs text-white font-bold">+$1</span>
-                        </div>
-                      )}
-                    </button>
-                  )
-                })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Sell Result Modal */}
+      {/* Sell result modal */}
       {sellResult && (
-        <div
-          className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-        >
-          <div className="glass rounded-3xl max-w-sm w-full p-8 text-center" onClick={e => e.stopPropagation()}>
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white">
-                <path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-              </svg>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(12,9,11,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 20 }}>
+          <div style={{ background: 'var(--ink)', borderRadius: 2, maxWidth: 300, width: '100%', padding: '24px 20px', textAlign: 'center', border: '0.5px solid rgba(250,247,242,0.1)' }}>
+            <div style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'var(--rose)', marginBottom: 8 }}>Venta completada</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontStyle: 'italic', color: 'var(--paper)', lineHeight: 1, marginBottom: 16 }}>+$1.00</div>
+            <div style={{ padding: '10px', border: '0.5px solid rgba(250,247,242,0.1)', borderRadius: 2, marginBottom: 16, fontSize: 10, color: 'rgba(250,247,242,0.6)' }}>
+              Nuevo saldo: <span style={{ color: 'var(--paper)', fontWeight: 700 }}>${sellResult.newBalance.toFixed(2)}</span>
             </div>
-            <h2 className="text-2xl font-bold text-white mb-2">¡Venta Completada!</h2>
-            <p className="text-gray-400 mb-4">Has vendido una carta legendaria repetida</p>
-
-            <div className="bg-emerald-500/20 border border-emerald-500/30 rounded-xl p-4 mb-6">
-              <p className="text-emerald-400 text-lg font-bold">+$1.00</p>
-              <p className="text-gray-400 text-sm">Nuevo saldo: ${sellResult.newBalance.toFixed(2)}</p>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => window.location.reload()}
-                className="flex-1 py-2.5 rounded-xl bg-white/10 text-white font-medium hover:bg-white/20 transition-colors"
-              >
-                Ver Álbum
-              </button>
-              <button
-                onClick={() => setSellResult(null)}
-                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-medium"
-              >
-                Vender Otra
-              </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => window.location.reload()} style={{ flex: 1, padding: '11px', background: 'transparent', border: '0.5px solid rgba(250,247,242,0.2)', color: 'rgba(250,247,242,0.7)', fontSize: 9, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', borderRadius: 2, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Ver Álbum</button>
+              <button onClick={() => setSellResult(null)} style={{ flex: 1, padding: '11px', background: 'var(--rose)', color: 'var(--ink)', border: 'none', fontSize: 9, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', borderRadius: 2, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Vender Otra</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Legendary Exchange Result Modal */}
+      {/* Legendary exchange result modal */}
       {legendaryExchangeResult && (
-        <div
-          className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-        >
-          <div className="glass rounded-3xl max-w-sm w-full p-8 text-center" onClick={e => e.stopPropagation()}>
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-yellow-500 to-amber-600 flex items-center justify-center">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white">
-                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-              </svg>
-            </div>
-            <h2 className="text-2xl font-bold text-white mb-2">¡Intercambio Completado!</h2>
-            <p className="text-gray-400 mb-2">Obtuviste una nueva carta legendaria</p>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(12,9,11,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 20 }}>
+          <div style={{ background: 'var(--ink)', borderRadius: 2, maxWidth: 320, width: '100%', padding: '24px 20px', textAlign: 'center', border: '0.5px solid rgba(212,163,86,0.3)' }}>
+            <div style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'var(--rarity-legendary)', marginBottom: 8 }}>Intercambio completado</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontStyle: 'italic', color: 'var(--paper)', lineHeight: 1, marginBottom: 6 }}>¡Legendaria!</div>
             {legendaryExchangeResult.collectionName && (
-              <p className="text-xs text-amber-400/80 mb-4">
-                del catálogo: {legendaryExchangeResult.collectionName}
-              </p>
+              <div style={{ fontSize: 9, color: 'rgba(250,247,242,0.5)', marginBottom: 16 }}>del catálogo: {legendaryExchangeResult.collectionName}</div>
             )}
-
-            <div className="relative mx-auto w-40 h-40 mb-6 rounded-2xl overflow-hidden border-2 border-yellow-500/50 card-glow-legendary">
-              <img src={legendaryExchangeResult.thumbnailUrl || legendaryExchangeResult.url} alt="" className="w-full h-full object-cover" />
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
-                <span className="text-sm font-bold text-yellow-400">Legendario</span>
-              </div>
+            <div style={{ margin: '0 auto 20px', width: 120, height: 160, borderRadius: 2, overflow: 'hidden', border: `1px solid var(--rarity-legendary)`, boxShadow: '0 0 0 2px rgba(212,163,86,0.2)' }}>
+              <img src={legendaryExchangeResult.thumbnailUrl || legendaryExchangeResult.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={closeLegendaryExchangeResult}
-                className="flex-1 py-2.5 rounded-xl bg-white/10 text-white font-medium hover:bg-white/20 transition-colors"
-              >
-                Ver Álbum
-              </button>
-              <button
-                onClick={() => setLegendaryExchangeResult(null)}
-                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-600 text-white font-medium"
-              >
-                Nuevo Intercambio
-              </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={closeLegendaryExchangeResult} style={{ flex: 1, padding: '11px', background: 'transparent', border: '0.5px solid rgba(250,247,242,0.2)', color: 'rgba(250,247,242,0.7)', fontSize: 9, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', borderRadius: 2, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Ver Álbum</button>
+              <button onClick={() => setLegendaryExchangeResult(null)} style={{ flex: 1, padding: '11px', background: 'var(--rarity-legendary)', color: 'var(--ink)', border: 'none', fontSize: 9, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', borderRadius: 2, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Nuevo Intercambio</button>
             </div>
           </div>
         </div>
