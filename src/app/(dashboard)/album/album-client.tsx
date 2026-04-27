@@ -108,6 +108,7 @@ export function AlbumClient({
   const [fusing, setFusing]                   = useState(false)
   const [fusionResult, setFusionResult]       = useState<Photo | null>(null)
   const [activeTab, setActiveTab]             = useState<'book' | 'fusion' | 'legendary'>('book')
+  const [bookPage, setBookPage]               = useState(0)
 
   const [selectedLegendaries, setSelectedLegendaries] = useState<Photo[]>([])
   const [exchangingLegendary, setExchangingLegendary] = useState(false)
@@ -118,6 +119,7 @@ export function AlbumClient({
   const collection = initialAlbum.find(c => c.id === selectedCollection)
 
   const filteredPhotos = useMemo(() => {
+    setBookPage(0)
     if (!collection) return []
     if (selectedRarity === 'ALL') return collection.photos
     return collection.photos.filter(p => p.rarity === selectedRarity)
@@ -339,14 +341,42 @@ export function AlbumClient({
       {/* Content area */}
       <div>
 
-        {/* Book tab — scrollable uniform grid */}
+        {/* Book tab — paginated uniform grid, 10 photos per page */}
         {activeTab === 'book' && collection && (
           <div style={{ padding: '10px 16px 100px' }}>
+            {/* Page navigation */}
+            {(() => {
+              const totalPages = Math.ceil(filteredPhotos.length / 10)
+              return totalPages > 1 ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <button
+                    onClick={() => setBookPage(p => Math.max(0, p - 1))}
+                    disabled={bookPage === 0}
+                    style={{ padding: '6px 12px', background: 'transparent', border: '0.5px solid rgba(26,20,24,0.2)', borderRadius: 2, fontSize: 9, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: bookPage === 0 ? 'rgba(26,20,24,0.25)' : 'var(--ink)', cursor: bookPage === 0 ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)' }}
+                  >← Anterior</button>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    {Array.from({ length: totalPages }).map((_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setBookPage(i)}
+                        style={{ width: 22, height: 22, borderRadius: 2, border: bookPage === i ? 'none' : '0.5px solid rgba(26,20,24,0.2)', background: bookPage === i ? 'var(--ink)' : 'transparent', color: bookPage === i ? 'var(--paper)' : 'rgba(26,20,24,0.5)', fontSize: 9, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-mono)' }}
+                      >{i + 1}</button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => setBookPage(p => Math.min(totalPages - 1, p + 1))}
+                    disabled={bookPage >= totalPages - 1}
+                    style={{ padding: '6px 12px', background: 'transparent', border: '0.5px solid rgba(26,20,24,0.2)', borderRadius: 2, fontSize: 9, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: bookPage >= totalPages - 1 ? 'rgba(26,20,24,0.25)' : 'var(--ink)', cursor: bookPage >= totalPages - 1 ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)' }}
+                  >Siguiente →</button>
+                </div>
+              ) : null
+            })()}
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              {filteredPhotos.map((photo, index) => {
+              {filteredPhotos.slice(bookPage * 10, bookPage * 10 + 10).map((photo, index) => {
                 const isOwned = photo.quantity > 0
                 const color   = rarityColor[photo.rarity]
-                const num     = index + 1
+                const num     = bookPage * 10 + index + 1
 
                 return (
                   <button
