@@ -3,7 +3,7 @@
 import { prisma } from '@/lib/prisma'
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { generatePackRarities } from '@/lib/gacha/rng'
+import { generatePackRarities, RARITY_WEIGHTS } from '@/lib/gacha/rng'
 import { PACK_PRICE, SINGLE_PRICE, type PullResult, type PackResult, type Rarity } from '@/lib/store/types'
 import { checkUserRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 
@@ -263,16 +263,13 @@ export async function purchaseSingle(collectionId?: string): Promise<PullResult>
     } else if (isGuaranteedLegendary) {
       rarity = 'LEGENDARY'
     } else {
-      // Weighted random selection
-      const weights = { COMMON: 60, RARE: 25, EPIC: 10, LEGENDARY: 5 }
-      let random = Math.random() * 100
+      // Weighted random selection using canonical RARITY_WEIGHTS (55/35/8.5/1.5)
+      const total = Object.values(RARITY_WEIGHTS).reduce((s, w) => s + w, 0)
+      let random = (crypto.getRandomValues(new Uint32Array(1))[0] / 0x100000000) * total
       rarity = 'COMMON'
-      for (const r of ['LEGENDARY', 'EPIC', 'RARE', 'COMMON'] as Rarity[]) {
-        if (random < weights[r]) {
-          rarity = r
-          break
-        }
-        random -= weights[r]
+      for (const r of ['COMMON', 'RARE', 'EPIC', 'LEGENDARY'] as Rarity[]) {
+        random -= RARITY_WEIGHTS[r]
+        if (random <= 0) { rarity = r; break }
       }
     }
 
