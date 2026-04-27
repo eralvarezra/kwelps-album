@@ -251,7 +251,7 @@ export function AlbumClient({
         total={collection?.totalPhotos || 0}
         byRarity={byRarity}
         currentPage={1}
-        totalPages={Math.ceil((collection?.photos.length || 0) / 6)}
+        totalPages={Math.ceil((collection?.photos.length || 0) / 10)}
         onSoundToggle={toggleMute}
         isMuted={muted}
       />
@@ -333,7 +333,7 @@ export function AlbumClient({
             <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', maxWidth: '100vw' }}>
               <BookSpread
                 photos={filteredPhotos}
-                photosPerPage={6}
+                photosPerPage={10}
                 onPhotoClick={handlePhotoClick}
                 onFlip={handleFlip}
               />
