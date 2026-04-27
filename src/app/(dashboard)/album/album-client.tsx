@@ -109,7 +109,7 @@ function PageView({
   while (cells.length < 10) cells.push(null as unknown as AlbumPhoto)
 
   return (
-    <div style={{ width: '100%', height: '100%', background: 'var(--paper)', padding: '10px 12px 12px', display: 'flex', flexDirection: 'column', backfaceVisibility: 'hidden', color: 'var(--ink)' }}>
+    <div style={{ width: '100%', height: '100%', background: 'var(--paper)', padding: '10px 12px 12px', display: 'flex', flexDirection: 'column', backfaceVisibility: 'hidden', color: 'var(--ink)', overflow: 'hidden' }}>
       {/* Editorial page header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', paddingBottom: 6, marginBottom: 8, borderBottom: '0.5px solid rgba(26,20,24,0.18)' }}>
         <div style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase' }}>{chapter}</div>
@@ -117,12 +117,12 @@ function PageView({
       </div>
 
       {/* 2×5 uniform grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: 'repeat(5, 1fr)', gap: '6px 8px', flex: 1 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: 'repeat(5, 1fr)', gap: '6px 8px', flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {cells.map((photo, i) => {
           const num = startNum + i
           if (!photo) {
             return (
-              <div key={`empty-${i}`} style={{ position: 'relative', aspectRatio: '3/4', background: 'var(--paper-warm)', borderRadius: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '0.5px solid rgba(26,20,24,0.08)' }}>
+              <div key={`empty-${i}`} style={{ position: 'relative', background: 'var(--paper-warm)', borderRadius: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '0.5px solid rgba(26,20,24,0.08)', overflow: 'hidden', minHeight: 0 }}>
                 <div style={{ position: 'absolute', inset: 6, border: '0.5px dashed rgba(26,20,24,0.18)' }} />
                 <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontStyle: 'italic', color: 'rgba(26,20,24,0.18)' }}>?</div>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'rgba(26,20,24,0.28)', letterSpacing: '0.1em', marginTop: 2 }}>N°{String(num).padStart(2, '0')}</div>
@@ -137,7 +137,7 @@ function PageView({
 
           if (!isOwned) {
             return (
-              <div key={photo.id} style={{ position: 'relative', aspectRatio: '3/4', background: 'var(--paper-warm)', borderRadius: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '0.5px solid rgba(26,20,24,0.08)' }}>
+              <div key={photo.id} style={{ position: 'relative', background: 'var(--paper-warm)', borderRadius: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '0.5px solid rgba(26,20,24,0.08)', overflow: 'hidden', minHeight: 0 }}>
                 <div style={{ position: 'absolute', inset: 6, border: '0.5px dashed rgba(26,20,24,0.18)' }} />
                 <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontStyle: 'italic', color: 'rgba(26,20,24,0.18)' }}>?</div>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'rgba(26,20,24,0.28)', letterSpacing: '0.1em', marginTop: 2 }}>N°{String(num).padStart(2, '0')}</div>
@@ -149,9 +149,9 @@ function PageView({
             <button
               key={photo.id}
               onClick={() => onPhotoClick(photo)}
-              style={{ position: 'relative', aspectRatio: '3/4', borderRadius: 2, overflow: 'hidden', border: `1px solid ${borderColor}`, padding: 0, cursor: 'pointer', boxShadow: isLegendary ? '0 0 0 2px #f5d9b5, 0 4px 8px rgba(212,163,86,0.2)' : isEpic ? '0 0 0 1px #f5d9d1' : '0 2px 4px rgba(0,0,0,0.06)' }}
+              style={{ position: 'relative', borderRadius: 2, overflow: 'hidden', border: `1px solid ${borderColor}`, padding: 0, cursor: 'pointer', width: '100%', height: '100%', minHeight: 0, boxShadow: isLegendary ? '0 0 0 2px #f5d9b5, 0 4px 8px rgba(212,163,86,0.2)' : isEpic ? '0 0 0 1px #f5d9d1' : '0 2px 4px rgba(0,0,0,0.06)' }}
             >
-              <img src={photo.thumbnailUrl || photo.url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              <img src={photo.url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
               {isLegendary && <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(115deg, transparent 30%, rgba(255,220,180,0.25) 45%, rgba(244,215,106,0.12) 50%, transparent 65%)', mixBlendMode: 'overlay', pointerEvents: 'none' }} />}
               <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '45%', background: 'linear-gradient(180deg, transparent, rgba(0,0,0,0.75))', pointerEvents: 'none' }} />
               <div style={{ position: 'absolute', top: 4, left: 4, fontFamily: 'var(--font-mono)', fontSize: 7, color: 'rgba(255,255,255,0.85)', letterSpacing: '0.1em', fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>N°{String(num).padStart(2, '0')}</div>
@@ -170,13 +170,18 @@ function PageView({
 export function AlbumClient({
   initialAlbum,
   initialStats,
+  initialCollectionId,
 }: {
   initialAlbum: AlbumCollection[]
   initialStats: AlbumStats | null
+  initialCollectionId?: string
 }) {
-  const [selectedCollection, setSelectedCollection] = useState<string | null>(
-    initialAlbum.find(c => c.active)?.id ?? initialAlbum[0]?.id ?? null
-  )
+  const [selectedCollection, setSelectedCollection] = useState<string | null>(() => {
+    if (initialCollectionId && initialAlbum.some(c => c.id === initialCollectionId)) {
+      return initialCollectionId
+    }
+    return initialAlbum.find(c => c.active)?.id ?? initialAlbum[0]?.id ?? null
+  })
   const [selectedRarity, setSelectedRarity]   = useState<Rarity>('ALL')
   const [selectedPhoto, setSelectedPhoto]     = useState<Photo | null>(null)
   const [selectedForFusion, setSelectedForFusion] = useState<Photo[]>([])

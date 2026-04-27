@@ -1,4 +1,5 @@
 import { BottomNav } from '@/components/layout/bottom-nav'
+import { PageTransition } from '@/components/layout/page-transition'
 
 export default function DashboardLayout({
   children,
@@ -13,7 +14,9 @@ export default function DashboardLayout({
         width: '100%',
         paddingBottom: '80px',
       }}>
-        {children}
+        <PageTransition>
+          {children}
+        </PageTransition>
       </main>
       <BottomNav />
     </div>

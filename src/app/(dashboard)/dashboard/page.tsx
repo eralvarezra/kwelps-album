@@ -50,8 +50,9 @@ export default async function DashboardPage() {
       include: {
         _count: { select: { photos: true } },
         photos: {
+          where: { rarity: 'COMMON' },
           take: 1,
-          orderBy: { createdAt: 'desc' },
+          orderBy: { createdAt: 'asc' },
           select: { url: true, thumbnailUrl: true },
         },
       },
@@ -134,9 +135,54 @@ export default async function DashboardPage() {
             </div>
           </div>
 
-          <div style={{ fontSize: 11, color: 'rgba(26,20,24,0.6)', lineHeight: 1.5, marginTop: 12, marginBottom: 20, maxWidth: 300 }}>
-            Coleccionalas, fusionalas y completa ediciones para reclamar premios físicos.
+          <div style={{ fontSize: 11, color: 'rgba(26,20,24,0.6)', lineHeight: 1.5, marginTop: 12, marginBottom: 16, maxWidth: 300 }}>
+            Coleccionalas, fusionalas y completa ediciones para reclamar premios especiales.
           </div>
+
+          {/* Active collections quick-pick */}
+          {collections.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(26,20,24,0.55)', marginBottom: 10 }}>
+                Colecciones activas
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {collections.map(c => {
+                  const pct = c.total > 0 ? (c.owned / c.total) * 100 : 0
+                  return (
+                    <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'var(--paper-card)', border: '0.5px solid rgba(26,20,24,0.12)', borderRadius: 2 }}>
+                      {/* Thumb */}
+                      <div style={{
+                        width: 44, height: 44, flexShrink: 0, borderRadius: 2,
+                        backgroundImage: c.coverUrl ? `url(${c.coverUrl})` : undefined,
+                        background: c.coverUrl ? undefined : 'var(--paper-warm)',
+                        backgroundSize: 'cover', backgroundPosition: 'center',
+                      }} />
+                      {/* Info */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontStyle: 'italic', fontWeight: 500, lineHeight: 1, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {c.name}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5 }}>
+                          <div style={{ flex: 1, height: 2, background: 'rgba(26,20,24,0.08)', borderRadius: 1, position: 'relative', overflow: 'hidden' }}>
+                            <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%`, background: 'var(--ink)' }} />
+                          </div>
+                          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'rgba(26,20,24,0.5)', flexShrink: 0 }}>
+                            {c.owned}/{c.total}
+                          </div>
+                        </div>
+                      </div>
+                      {/* CTA */}
+                      <Link href={`/store?collection=${c.id}`} style={{ textDecoration: 'none', flexShrink: 0 }}>
+                        <div style={{ padding: '8px 12px', background: 'var(--ink)', color: 'var(--paper)', fontSize: 8, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', borderRadius: 2, whiteSpace: 'nowrap' }}>
+                          Comprar →
+                        </div>
+                      </Link>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Hero collection */}
           {hero && (
@@ -271,12 +317,9 @@ export default async function DashboardPage() {
               <div style={{ fontSize: 11, lineHeight: 1.5, color: 'rgba(250,247,242,0.7)', marginTop: 12, maxWidth: 240 }}>
                 Cuando termines una colección, contactanos por Telegram con la captura y enviamos tu premio físico.
               </div>
-              <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
+              <div style={{ marginTop: 16 }}>
                 <a href="https://t.me/kwelps" target="_blank" rel="noopener noreferrer" style={{ padding: '10px 16px', background: 'var(--rose)', color: 'var(--ink)', fontSize: 9, fontWeight: 700, letterSpacing: '0.25em', textTransform: 'uppercase', borderRadius: 2, textDecoration: 'none' }}>
                   Telegram
-                </a>
-                <a href="https://t.me/kwelps" target="_blank" rel="noopener noreferrer" style={{ padding: '10px 16px', border: '0.5px solid rgba(250,247,242,0.3)', color: 'var(--paper)', fontSize: 9, fontWeight: 700, letterSpacing: '0.25em', textTransform: 'uppercase', borderRadius: 2, textDecoration: 'none' }}>
-                  Reglas
                 </a>
               </div>
             </div>
