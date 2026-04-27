@@ -1,66 +1,69 @@
 import { LoginForm } from '@/components/auth/login-form'
 import Link from 'next/link'
-import { LoginBackground } from './login-background'
-import { prisma } from '@/lib/prisma'
 
-async function getRandomPhotos() {
-  try {
-    // Get random photos from active collections (only COMMON or RARE)
-    const photos = await prisma.photo.findMany({
-      where: {
-        collection: {
-          active: true,
-        },
-        rarity: {
-          in: ['COMMON', 'RARE'],
-        },
-      },
-      select: {
-        id: true,
-        url: true,
-        thumbnailUrl: true,
-      },
-    })
-
-    // Shuffle and take up to 20 photos
-    const shuffled = photos.sort(() => Math.random() - 0.5)
-    return shuffled.slice(0, 20)
-  } catch (error) {
-    console.error('Error fetching photos for carousel:', error)
-    return []
-  }
-}
-
-export default async function LoginPage() {
-  const carouselImages = await getRandomPhotos()
-
+export default function LoginPage() {
   return (
-    <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
-      {/* Background Carousel */}
-      <LoginBackground images={carouselImages} />
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden', background: 'var(--paper)' }}>
 
-      {/* Content */}
-      <div className="relative z-10 w-full max-w-md p-4">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center shadow-lg shadow-purple-500/25">
-            <span className="text-white font-bold text-2xl">K</span>
+      {/* Decorative blurred shelf background */}
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+        <div style={{ position: 'absolute', inset: 0, padding: 20, filter: 'blur(10px)', opacity: 0.4 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 40, fontStyle: 'italic', color: 'var(--ink)' }}>Kwelps</div>
+            <div style={{ fontSize: 9, letterSpacing: '0.3em', textTransform: 'uppercase', fontWeight: 700, color: 'var(--ink)' }}>Vol. 01</div>
           </div>
-          <h1 className="text-2xl font-bold text-white mt-4">Kwelps Album</h1>
-          <p className="text-gray-300 mt-1">Inicia sesión en tu cuenta</p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            {(['var(--ink)', 'var(--blush)', 'var(--rose)', '#2a1e22'] as string[]).map((bg, i) => (
+              <div key={i} style={{ aspectRatio: '0.7', background: bg, borderRadius: 2 }} />
+            ))}
+          </div>
         </div>
+        {/* Dim overlay */}
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,20,24,0.45)', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)' }} />
+      </div>
 
-        {/* Form Container */}
-        <div className="bg-black/40 backdrop-blur-xl rounded-2xl p-6 border border-white/10 shadow-2xl">
-          <LoginForm />
+      {/* Card */}
+      <div style={{ position: 'relative', zIndex: 2, width: '100%', maxWidth: 390, margin: '0 auto', padding: '0 20px' }}>
+        <div style={{ background: 'var(--paper)', borderRadius: 3, boxShadow: '0 40px 80px rgba(26,20,24,0.5)', overflow: 'hidden' }}>
 
-          <div className="mt-6 text-center">
-            <p className="text-gray-300 text-sm">
-              ¿No tienes cuenta?{' '}
-              <Link href="/register" className="text-purple-400 hover:text-purple-300 font-medium">
+          {/* Ornamental header strip */}
+          <div style={{ background: 'var(--ink)', color: 'var(--rose)', padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase' }}>Iniciar sesión</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 7, letterSpacing: '0.1em', color: 'rgba(232,164,164,0.7)' }}>Kwelps · 2026</div>
+          </div>
+
+          <div style={{ padding: '24px 22px 28px' }}>
+
+            {/* Headline */}
+            <div style={{ textAlign: 'center', marginBottom: 20 }}>
+              <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.4em', textTransform: 'uppercase', color: 'var(--wine)', marginBottom: 8 }}>
+                Tu colección te espera
+              </div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 36, fontStyle: 'italic', fontWeight: 400, lineHeight: 0.95, letterSpacing: '-0.03em' }}>
+                Bienvenida
+              </div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 36, fontWeight: 400, lineHeight: 0.95, letterSpacing: '-0.03em', color: 'var(--wine)', marginBottom: 14 }}>
+                de vuelta
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+                <div style={{ flex: 1, height: '0.5px', background: 'rgba(26,20,24,0.15)' }} />
+                <div style={{ fontSize: 12, color: 'rgba(26,20,24,0.4)' }}>❦</div>
+                <div style={{ flex: 1, height: '0.5px', background: 'rgba(26,20,24,0.15)' }} />
+              </div>
+            </div>
+
+            <LoginForm />
+
+            <div style={{ marginTop: 16, textAlign: 'center' }}>
+              <span style={{ fontSize: 10, color: 'rgba(26,20,24,0.55)' }}>¿No tienes cuenta? </span>
+              <Link href="/register" style={{ fontSize: 10, fontWeight: 700, color: 'var(--wine)', textDecoration: 'none', letterSpacing: '0.05em' }}>
                 Regístrate
               </Link>
-            </p>
+            </div>
+
+            <div style={{ marginTop: 14, textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 8, color: 'rgba(26,20,24,0.35)', letterSpacing: '0.1em' }}>
+              ¡Buena suerte, coleccionista!
+            </div>
           </div>
         </div>
       </div>

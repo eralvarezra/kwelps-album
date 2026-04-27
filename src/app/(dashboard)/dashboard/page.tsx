@@ -213,7 +213,7 @@ export default async function DashboardPage() {
                     Otras ediciones
                   </div>
                 </div>
-                <Link href="/album" style={{ textDecoration: 'none', fontSize: 8, fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'var(--wine)' }}>
+                <Link href="/collections" style={{ textDecoration: 'none', fontSize: 8, fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'var(--wine)' }}>
                   Ver todas
                 </Link>
               </div>

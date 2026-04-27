@@ -4,10 +4,10 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const tabs = [
-  { label: 'Inicio', href: '/dashboard' },
-  { label: 'Álbum',  href: '/album' },
-  { label: 'Tienda', href: '/store' },
-  { label: 'Wallet', href: '/wallet' },
+  { label: 'Inicio',     href: '/dashboard' },
+  { label: 'Colección',  href: '/collections' },
+  { label: 'Tienda',     href: '/store' },
+  { label: 'Wallet',     href: '/wallet' },
 ]
 
 export function BottomNav() {
@@ -31,7 +31,9 @@ export function BottomNav() {
       zIndex: 50,
     }}>
       {tabs.map(tab => {
-        const active = pathname === tab.href || (tab.href !== '/dashboard' && pathname.startsWith(tab.href))
+        const active = pathname === tab.href
+          || (tab.href !== '/dashboard' && pathname.startsWith(tab.href))
+          || (tab.href === '/collections' && pathname.startsWith('/album'))
         return (
           <Link
             key={tab.href}
