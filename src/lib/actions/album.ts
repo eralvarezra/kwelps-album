@@ -13,15 +13,24 @@ export type AlbumPhoto = {
   obtainedAt: Date
 }
 
+export type AlbumPrize = {
+  id: string
+  type: 'PER_PAGE' | 'COMPLETION'
+  pageNumber: number | null
+  description: string
+}
+
 export type AlbumCollection = {
   id: string
   name: string
   description: string | null
   prize: string
+  photosPerPage: number
   active: boolean
   totalPhotos: number
   collectedPhotos: number
   photos: AlbumPhoto[]
+  prizes: AlbumPrize[]
 }
 
 export type AlbumStats = {
@@ -49,11 +58,14 @@ export async function getAlbum() {
     return []
   }
 
-  // Get all collections with their photos
+  // Get all collections with their photos and prizes
   const collections = await prisma.collection.findMany({
     include: {
       photos: {
         orderBy: { rarity: 'asc' },
+      },
+      prizes: {
+        orderBy: [{ type: 'asc' }, { pageNumber: 'asc' }],
       },
     },
     orderBy: { createdAt: 'desc' },
@@ -93,10 +105,17 @@ export async function getAlbum() {
       name: collection.name,
       description: collection.description,
       prize: collection.prize,
+      photosPerPage: collection.photosPerPage,
       active: collection.active,
       totalPhotos: collection.photos.length,
       collectedPhotos,
       photos,
+      prizes: collection.prizes.map(p => ({
+        id: p.id,
+        type: p.type as 'PER_PAGE' | 'COMPLETION',
+        pageNumber: p.pageNumber,
+        description: p.description,
+      })),
     }
   })
 

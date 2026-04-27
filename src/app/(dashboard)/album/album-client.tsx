@@ -503,6 +503,35 @@ export function AlbumClient({
               ))}
             </div>
 
+            {/* Prize banners — only in ALL rarity view */}
+            {selectedRarity === 'ALL' && (() => {
+              const pagePrize      = collection.prizes.find(p => p.type === 'PER_PAGE' && p.pageNumber === bookPage + 1)
+              const completionPrize = collection.prizes.find(p => p.type === 'COMPLETION')
+              if (!pagePrize && !completionPrize) return null
+              return (
+                <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 6, padding: '2px 0 4px' }}>
+                  {pagePrize && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'rgba(138,47,59,0.08)', border: '0.5px solid rgba(138,47,59,0.2)', borderRadius: 2 }}>
+                      <div style={{ fontSize: 13 }}>🎁</div>
+                      <div>
+                        <div style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--wine)', marginBottom: 1 }}>Premio · Página {bookPage + 1}</div>
+                        <div style={{ fontSize: 11, color: 'var(--ink)', fontWeight: 500 }}>{pagePrize.description}</div>
+                      </div>
+                    </div>
+                  )}
+                  {completionPrize && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'rgba(212,163,86,0.08)', border: '0.5px solid rgba(212,163,86,0.3)', borderRadius: 2 }}>
+                      <div style={{ fontSize: 13 }}>⭐</div>
+                      <div>
+                        <div style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#b8893a', marginBottom: 1 }}>Premio · Álbum completo</div>
+                        <div style={{ fontSize: 11, color: 'var(--ink)', fontWeight: 500 }}>{completionPrize.description}</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+
             <style>{`
               @keyframes flipNext {
                 0%   { transform: rotateY(0deg); }

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
-import { collectionSchema, type CollectionInput } from '@/lib/validations/collection'
+import { collectionSchema, collectionPrizeSchema, type CollectionInput, type CollectionPrizeInput } from '@/lib/validations/collection'
 import { requireAdmin } from '@/lib/auth/admin'
 import { deletePhoto } from '@/lib/storage/supabase-storage'
 
@@ -39,6 +39,56 @@ export async function createCollection(data: CollectionInput) {
 
   revalidatePath('/admin/collections')
   return collection
+}
+
+export async function createCollectionWithPrizes(
+  data: CollectionInput,
+  prizes: CollectionPrizeInput[]
+) {
+  await requireAdmin()
+
+  const validated = collectionSchema.parse(data)
+  const validatedPrizes = prizes.map(p => collectionPrizeSchema.parse(p))
+
+  const collection = await prisma.$transaction(async (tx) => {
+    const col = await tx.collection.create({ data: validated })
+    if (validatedPrizes.length > 0) {
+      await tx.collectionPrize.createMany({
+        data: validatedPrizes.map(p => ({ ...p, collectionId: col.id })),
+      })
+    }
+    return col
+  })
+
+  revalidatePath('/admin/collections')
+  return collection
+}
+
+export async function getCollectionPrizes(collectionId: string) {
+  return prisma.collectionPrize.findMany({
+    where: { collectionId },
+    orderBy: [{ type: 'asc' }, { pageNumber: 'asc' }],
+  })
+}
+
+export async function upsertCollectionPrizes(
+  collectionId: string,
+  prizes: CollectionPrizeInput[]
+) {
+  await requireAdmin()
+
+  const validatedPrizes = prizes.map(p => collectionPrizeSchema.parse(p))
+
+  await prisma.$transaction(async (tx) => {
+    await tx.collectionPrize.deleteMany({ where: { collectionId } })
+    if (validatedPrizes.length > 0) {
+      await tx.collectionPrize.createMany({
+        data: validatedPrizes.map(p => ({ ...p, collectionId })),
+      })
+    }
+  })
+
+  revalidatePath(`/admin/collections/${collectionId}`)
 }
 
 export async function updateCollection(id: string, data: Partial<CollectionInput>) {

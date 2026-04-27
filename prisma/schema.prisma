@@ -49,16 +49,31 @@ model Transaction {
 }
 
 model Collection {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  prize       String   @default("")
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  photos      Photo[]
+  id            String            @id @default(uuid())
+  name          String
+  description   String?
+  prize         String            @default("")
+  photosPerPage Int               @default(10)
+  active        Boolean           @default(true)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  photos        Photo[]
+  prizes        CollectionPrize[]
 
   @@map("collections")
+}
+
+model CollectionPrize {
+  id           String     @id @default(uuid())
+  collectionId String
+  type         PrizeType
+  pageNumber   Int?
+  description  String
+  createdAt    DateTime   @default(now())
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@index([collectionId])
+  @@map("collection_prizes")
 }
 
 model Photo {
@@ -120,4 +135,9 @@ enum Rarity {
   RARE
   EPIC
   LEGENDARY
+}
+
+enum PrizeType {
+  PER_PAGE
+  COMPLETION
 }
